@@ -1,6 +1,15 @@
 /* ================= MAIN RENDER ================= */
 function render(){
   const app = document.getElementById('app');
+  
+  // 檢查登入狀態
+  if(!checkLoginState()){
+    // 未登入，顯示登入頁面
+    app.innerHTML = renderLoginPage();
+    return;
+  }
+  
+  // 已登入，顯示主應用
   let viewHTML = '';
   switch(state.route){
     case 'projects': viewHTML = viewProjects(); break;

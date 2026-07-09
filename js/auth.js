@@ -18,79 +18,24 @@ function initAuth() {
         emailVerified: user.emailVerified
       };
       
-      // 更新 UI
-      updateUIForLoggedInUser(user);
+      state.isLoggedIn = true;
+      state.isGuest = false;
       
       // 載入使用者資料
       loadUserData(user.uid);
       
+      // 重新渲染
+      render();
+      
       console.log('使用者已登入:', user.displayName);
-    } else {
-      // 未登入
+    } else if (!state.isGuest) {
+      // 未登入且非訪客
       currentUser = null;
-      updateUIForLoggedOutUser();
+      state.isLoggedIn = false;
+      render();
       console.log('使用者已登出');
     }
   });
-}
-
-// Google 登入
-async function signInWithGoogle() {
-  try {
-    const result = await auth.signInWithPopup(googleProvider);
-    const user = result.user;
-    toast(`歡迎，${user.displayName}！`);
-    return user;
-  } catch (error) {
-    console.error('登入失敗:', error);
-    if (error.code !== 'auth/popup-closed-by-user') {
-      toast('登入失敗，請稍後再試');
-    }
-    return null;
-  }
-}
-
-// 登出
-async function signOut() {
-  try {
-    await auth.signOut();
-    toast('已成功登出');
-  } catch (error) {
-    console.error('登出失敗:', error);
-    toast('登出失敗，請稍後再試');
-  }
-}
-
-// 更新 UI（已登入）
-function updateUIForLoggedInUser(user) {
-  const loginBtn = document.getElementById('loginBtn');
-  const logoutBtn = document.getElementById('logoutBtn');
-  const userAvatar = document.getElementById('userAvatar');
-  const userName = document.getElementById('userName');
-  
-  if (loginBtn) loginBtn.style.display = 'none';
-  if (logoutBtn) logoutBtn.style.display = 'flex';
-  if (userAvatar) {
-    if (user.photoURL) {
-      userAvatar.innerHTML = `<img src="${user.photoURL}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`;
-    } else {
-      userAvatar.innerHTML = getInitials(user.displayName || 'U');
-    }
-  }
-  if (userName) userName.textContent = user.displayName || '使用者';
-}
-
-// 更新 UI（已登出）
-function updateUIForLoggedOutUser() {
-  const loginBtn = document.getElementById('loginBtn');
-  const logoutBtn = document.getElementById('logoutBtn');
-  const userAvatar = document.getElementById('userAvatar');
-  const userName = document.getElementById('userName');
-  
-  if (loginBtn) loginBtn.style.display = 'flex';
-  if (logoutBtn) logoutBtn.style.display = 'none';
-  if (userAvatar) userAvatar.innerHTML = getInitials('訪客');
-  if (userName) userName.textContent = '訪客';
 }
 
 // 載入使用者資料

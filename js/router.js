@@ -8,6 +8,8 @@ const state = {
   chatContact: null,
   calMonth: new Date().getMonth(),
   calYear: new Date().getFullYear(),
+  isLoggedIn: false,
+  isGuest: false,
 };
 
 function go(route, extra){
@@ -29,4 +31,23 @@ function openModal(html, opts){
 function closeModal(){
   const el = document.getElementById('modalOverlay');
   if(el) el.remove();
+}
+
+// 檢查登入狀態
+function checkLoginState(){
+  // 檢查是否為訪客
+  const isGuest = localStorage.getItem('jianban_guest') === 'true';
+  if(isGuest){
+    state.isGuest = true;
+    state.isLoggedIn = true;
+    return true;
+  }
+  
+  // 檢查 Firebase 使用者
+  if(auth.currentUser){
+    state.isLoggedIn = true;
+    return true;
+  }
+  
+  return false;
 }

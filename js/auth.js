@@ -25,6 +25,7 @@ function initAuth() {
       if(!state.isGuest) {
         state.isLoggedIn = true;
         state.isGuest = false;
+        state.route = 'projects'; // 確保在專案管理頁面
         
         // 儲存使用者基本資料到 Firestore
         await saveUserBasicInfo(user);

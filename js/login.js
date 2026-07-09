@@ -60,6 +60,7 @@ async function handleGoogleLogin(){
     localStorage.setItem('jianban_logged_in', 'true');
     state.isGuest = false;
     state.isLoggedIn = true;
+    state.route = 'projects'; // 確保在專案管理頁面
     
     toast(`歡迎，${user.displayName}！`);
     render();
@@ -90,6 +91,7 @@ async function signInWithGoogle(){
     localStorage.setItem('jianban_logged_in', 'true');
     state.isGuest = false;
     state.isLoggedIn = true;
+    state.route = 'projects'; // 確保在專案管理頁面
     
     // 更新當前用戶資訊
     currentUser = {
@@ -128,6 +130,7 @@ async function handleLogout(){
     localStorage.removeItem('jianban_logged_in');
     state.isGuest = false;
     state.isLoggedIn = false;
+    state.route = 'projects'; // 重置路由
     
     if(auth.currentUser){
       await auth.signOut();
@@ -148,6 +151,7 @@ async function handleChangeAccount(){
     localStorage.removeItem('jianban_logged_in');
     state.isGuest = false;
     state.isLoggedIn = false;
+    state.route = 'projects'; // 重置路由
     
     if(auth.currentUser){
       await auth.signOut();

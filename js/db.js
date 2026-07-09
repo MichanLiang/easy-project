@@ -31,6 +31,9 @@ async function loadUserDataFromFirestore(){
     const docRef = getUserDocRef();
     const doc = await docRef.get();
     
+    // 設定當前用戶 ID
+    DB.currentUser = user.uid;
+    
     if(doc.exists){
       const data = doc.data();
       DB.projects = data.projects || [];

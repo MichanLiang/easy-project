@@ -6,8 +6,11 @@ let authStateListener = null;
 
 // 初始化認證系統
 function initAuth() {
-  // 只設置監聽器，不自動登入
+  // 設置監聽器
   authStateListener = auth.onAuthStateChanged(async (user) => {
+    // 標記已初始化
+    markInitialized();
+    
     if (user && localStorage.getItem('jianban_logged_in') === 'true') {
       // 已登入且有標記
       currentUser = {
@@ -87,5 +90,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // 載入 Firebase SDK 後初始化
   if (typeof firebase !== 'undefined' && firebase.auth) {
     initAuth();
+  } else {
+    // 如果 Firebase 還沒載入，先標記已初始化
+    setTimeout(() => {
+      if(!isInitialized) markInitialized();
+    }, 2000);
   }
 });

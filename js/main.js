@@ -1,6 +1,15 @@
 /* ================= MAIN RENDER ================= */
+let isInitialized = false;
+
 function render(){
   const app = document.getElementById('app');
+  
+  // 等待 Firebase 準備好
+  if(!isInitialized) {
+    // 顯示載入中
+    app.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:var(--ink-faint);">載入中...</div>`;
+    return;
+  }
   
   // 檢查登入狀態
   if(!checkLoginState()){
@@ -31,6 +40,12 @@ function render(){
     </div>
   `;
   afterRender();
+}
+
+// 標記已初始化
+function markInitialized(){
+  isInitialized = true;
+  render();
 }
 
 // 手機版關閉側邊欄

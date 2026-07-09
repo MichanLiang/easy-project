@@ -9,12 +9,26 @@ async function syncTodosToFirestore(){
   try {
     const todosRef = firebase.firestore().collection('users').doc(user.uid).collection('todos');
     
+    // 先取得 Firestore 中現有的任務
+    const snapshot = await todosRef.get();
+    const firestoreIds = new Set();
+    snapshot.forEach(doc => firestoreIds.add(doc.id));
+    
     // 同步本地任務到 Firestore
+    const localIds = new Set();
     for(const todo of DB.todos){
+      localIds.add(todo.id);
       await todosRef.doc(todo.id).set({
         ...todo,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       });
+    }
+    
+    // 刪除 Firestore 中不在本地的任務
+    for(const firestoreId of firestoreIds){
+      if(!localIds.has(firestoreId)){
+        await todosRef.doc(firestoreId).delete();
+      }
     }
   } catch (error) {
     console.error('同步任務失敗:', error);

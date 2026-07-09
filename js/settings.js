@@ -250,6 +250,8 @@ async function loadPendingInvitations(){
   const user = auth.currentUser;
   if(!user || state.isGuest) return;
   
+  console.log('載入邀請, 當前用戶:', user.email);
+  
   const pendingDiv = document.getElementById('pendingInvitations');
   if(!pendingDiv) return;
   
@@ -259,6 +261,7 @@ async function loadPendingInvitations(){
     
     usersSnapshot.forEach(doc => {
       const userData = doc.data();
+      console.log('檢查用戶:', doc.id, userData.email, userData.members);
       // 檢查對方的成員列表中是否有我，且狀態為 pending
       if(userData.members && userData.members.some(m => m.email === user.email && m.status === 'pending')){
         invitations.push({
@@ -268,6 +271,8 @@ async function loadPendingInvitations(){
         });
       }
     });
+    
+    console.log('找到邀請:', invitations);
     
     if(invitations.length > 0){
       pendingDiv.innerHTML = `

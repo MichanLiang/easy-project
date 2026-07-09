@@ -99,40 +99,48 @@ async function syncTeamMembers(){
     
     usersSnapshot.forEach(doc => {
       const userData = doc.data();
-      if(userData.members && userData.members.some(m => m.email === user.email)){
-        // 這個用戶邀請過我，我需要把他加入我的成員列表（狀態為 pending）
-        const inviterMember = {
-          id: doc.id,
-          name: userData.displayName || userData.email.split('@')[0],
-          email: userData.email,
-          color: '#9AABB8',
-          status: 'pending'
-        };
+      const myEntry = userData.members && userData.members.find(m => m.email === user.email);
+      
+      if(myEntry){
+        // 這個用戶邀請過我
+        // 如果對方邀請我的狀態是 accepted，我這邊也要是 accepted
+        // 如果對方邀請我的狀態是 pending，我這邊也應該是 pending
+        const targetStatus = myEntry.status === 'accepted' ? 'accepted' : 'pending';
         
         // 檢查是否已存在
         const existingMember = DB.members.find(m => m.email === userData.email);
         if(!existingMember){
-          DB.members.push(inviterMember);
+          // 新增到我的成員列表
+          DB.members.push({
+            id: doc.id,
+            name: userData.displayName || userData.email.split('@')[0],
+            email: userData.email,
+            color: '#9AABB8',
+            status: targetStatus
+          });
+          persist();
+        } else if(existingMember.status !== targetStatus){
+          // 更新狀態（如果對方改了狀態，我這邊也要更新）
+          existingMember.status = targetStatus;
           persist();
         }
         
         // 同時把我加入對方的成員列表（如果還沒有的話）
-        const myMember = {
-          id: user.uid,
-          name: user.displayName || user.email.split('@')[0],
-          email: user.email,
-          color: '#C4A4A4',
-          status: 'pending'
-        };
-        
-        // 更新對方的成員列表
-        const otherUserRef = firebase.firestore().collection('users').doc(doc.id);
-        const otherUserData = doc.data();
-        const otherMembers = otherUserData.members || [];
-        
-        if(!otherMembers.find(m => m.email === user.email)){
-          otherMembers.push(myMember);
-          otherUserRef.update({ members: otherMembers });
+        if(!myEntry){
+          const myMember = {
+            id: user.uid,
+            name: user.displayName || user.email.split('@')[0],
+            email: user.email,
+            color: '#C4A4A4',
+            status: 'pending'
+          };
+          
+          const otherMembers = userData.members || [];
+          if(!otherMembers.find(m => m.email === user.email)){
+            otherMembers.push(myMember);
+            const otherUserRef = firebase.firestore().collection('users').doc(doc.id);
+            otherUserRef.update({ members: otherMembers });
+          }
         }
       }
     });

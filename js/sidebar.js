@@ -83,11 +83,6 @@ function openUserMenu(){
       </div>
       
       <div style="display:flex;flex-direction:column;gap:8px;">
-        <button class="btn" onclick="go('settings');closeModal();" style="width:100%;justify-content:flex-start;">
-          <span class="icon">${getIcon('settings')}</span>
-          個人設定
-        </button>
-        
         ${state.isGuest ? `
           <button class="btn btn-primary" onclick="handleGoogleLogin();closeModal();" style="width:100%;justify-content:center;">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -99,11 +94,11 @@ function openUserMenu(){
             登入 Google 帳號同步資料
           </button>
         ` : `
-          <button class="btn" onclick="handleChangeAccount();closeModal();" style="width:100%;justify-content:flex-start;">
+          <button class="btn" onclick="handleChangeAccount()" style="width:100%;justify-content:flex-start;">
             <span class="icon">${getIcon('refreshCw')}</span>
             換帳號
           </button>
-          <button class="btn btn-danger" onclick="handleLogout();closeModal();" style="width:100%;justify-content:flex-start;">
+          <button class="btn btn-danger" onclick="handleLogout()" style="width:100%;justify-content:flex-start;">
             <span class="icon">${getIcon('logOut')}</span>
             登出
           </button>

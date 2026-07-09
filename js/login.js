@@ -66,3 +66,39 @@ function handleGuestLogin(){
   localStorage.setItem('jianban_guest', 'true');
   render();
 }
+
+// 登出
+async function handleLogout(){
+  try {
+    localStorage.removeItem('jianban_guest');
+    state.isGuest = false;
+    state.isLoggedIn = false;
+    
+    if(auth.currentUser){
+      await auth.signOut();
+    }
+    
+    toast('已成功登出');
+    render();
+  } catch (error) {
+    console.error('登出失敗:', error);
+    toast('登出失敗，請稍後再試');
+  }
+}
+
+// 換帳號
+async function handleChangeAccount(){
+  try {
+    localStorage.removeItem('jianban_guest');
+    state.isGuest = false;
+    state.isLoggedIn = false;
+    
+    if(auth.currentUser){
+      await auth.signOut();
+    }
+    
+    render();
+  } catch (error) {
+    console.error('換帳號失敗:', error);
+  }
+}

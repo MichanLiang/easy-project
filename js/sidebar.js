@@ -27,7 +27,7 @@ function renderSidebar(){
     </div>
     <div class="nav">
       ${NAV_ITEMS.map(it=>`
-        <div class="navitem ${state.route===it.key || (it.key==='projects'&&state.route==='project') ?'active':''}" onclick="go('${it.key}')" title="${it.label}">
+        <div class="navitem ${state.route===it.key || (it.key==='projects'&&state.route==='project') ?'active':''}" onclick="go('${it.key}');closeSidebarOnMobile();" title="${it.label}">
           <span class="ic">${getIcon(it.icon)}</span><span class="navlabel">${it.label}</span>
         </div>`).join('')}
     </div>
@@ -62,6 +62,15 @@ function toggleSidebar(){
   
   render(); 
   setTimeout(initIcons, 10);
+}
+
+// 手機版點擊導航後自動收起
+function closeSidebarOnMobile(){
+  if(window.innerWidth <= 768){
+    state.sidebarCollapsed = true;
+    const overlay = document.querySelector('.sidebar-overlay');
+    if(overlay) overlay.classList.remove('active');
+  }
 }
 
 // 用戶選單

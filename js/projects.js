@@ -33,6 +33,12 @@ function viewProjects(){
 
 function renderProjectCard(p){
   const docCount = p.docs.length;
+  // 只顯示已接受邀請的成員
+  const acceptedMemberIds = (p.memberIds || []).filter(id => {
+    const member = DB.members.find(m => m.id === id);
+    return member && member.status === 'accepted';
+  });
+  
   return `
   <div class="card proj-card" onclick="go('project',{projectId:'${p.id}',docId:null})">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;">
@@ -46,7 +52,7 @@ function renderProjectCard(p){
       ${docCount} 份文件
     </div>
     <div class="pmeta">
-      <div class="stack">${p.memberIds.slice(0,4).map(id=>avatarHTML(id,24)).join('')}</div>
+      <div class="stack">${acceptedMemberIds.slice(0,4).map(id=>avatarHTML(id,24)).join('')}</div>
       <span class="tag pending">${p.status}</span>
     </div>
   </div>`;

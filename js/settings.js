@@ -21,7 +21,10 @@ function viewSettings(){
   
   const currentTheme = localStorage.getItem('jianban_theme') || 'light';
   
-  setTimeout(initIcons, 10);
+  setTimeout(() => {
+    initIcons();
+    loadPendingInvitations();
+  }, 10);
   
   return `
   <div class="page-title">個人設定</div>
@@ -122,21 +125,31 @@ function viewSettings(){
         </div>
       </div>
       
+      <!-- 收到的邀請 -->
+      <div id="pendingInvitations"></div>
+      
       <!-- 成員列表 -->
       <div id="memberList">
-        ${DB.members.map(m=>`
+        ${DB.members.map(m=>{
+          const isMe = m.email === auth.currentUser?.email;
+          const isAccepted = m.status === 'accepted';
+          const isPending = m.status === 'pending';
+          
+          return `
           <div class="member-row" data-uid="${m.id}">
             ${avatarHTML(m.id,34)}
             <div style="flex:1;">
               <div style="font-weight:600;">${escapeHTML(m.name)}</div>
               <div style="font-size:11px;color:var(--ink-faint);">${m.email || '本地用戶'}</div>
             </div>
-            ${m.email === auth.currentUser?.email ? '<span style="font-size:11px;color:var(--accent);">你</span>' : 
+            ${isMe ? '<span style="font-size:11px;color:var(--accent);">你</span>' : 
+              isPending ? '<span class="tag" style="font-size:10px;background:var(--amber-soft);color:var(--amber-dark);">等待中</span>' :
               `<button class="btn-ghost btn-icon btn-sm" onclick="removeMember('${m.id}')">
                 <span class="icon">${getIcon('x')}</span>
               </button>`
             }
-          </div>`).join('')}
+          </div>`;
+        }).join('')}
         ${DB.members.length === 0 ? '<div class="empty">尚未邀請成員</div>' : ''}
       </div>
     </div>
@@ -181,7 +194,7 @@ async function inviteMember(){
     name: email.split('@')[0],
     email: email,
     color: colors[DB.members.length % colors.length],
-    isPending: true
+    status: 'pending'
   };
   
   // 嘗試從 Firestore 查找用戶
@@ -194,7 +207,6 @@ async function inviteMember(){
       if(userData.email === email){
         // 找到用戶，使用他們的 UID
         newMember.id = doc.id;
-        newMember.isPending = false;
         newMember.name = userData.displayName || email.split('@')[0];
         found = true;
       }
@@ -231,6 +243,102 @@ function removeMember(id){
   persist();
   saveUserDataToFirestore();
   render();
+}
+
+// 載入收到的邀請
+async function loadPendingInvitations(){
+  const user = auth.currentUser;
+  if(!user || state.isGuest) return;
+  
+  const pendingDiv = document.getElementById('pendingInvitations');
+  if(!pendingDiv) return;
+  
+  try {
+    const usersSnapshot = await firebase.firestore().collection('users').get();
+    const invitations = [];
+    
+    usersSnapshot.forEach(doc => {
+      const userData = doc.data();
+      // 檢查對方的成員列表中是否有我，且狀態為 pending
+      if(userData.members && userData.members.some(m => m.email === user.email && m.status === 'pending')){
+        invitations.push({
+          id: doc.id,
+          name: userData.displayName || userData.email.split('@')[0],
+          email: userData.email
+        });
+      }
+    });
+    
+    if(invitations.length > 0){
+      pendingDiv.innerHTML = `
+        <div style="margin-bottom:16px;padding:12px;background:var(--amber-soft);border-radius:var(--radius);border:1px solid var(--amber);">
+          <div style="font-weight:600;font-size:13px;color:var(--amber-dark);margin-bottom:8px;">收到的邀請</div>
+          ${invitations.map(inv => `
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line-light);">
+              <div>
+                <div style="font-weight:600;">${escapeHTML(inv.name)}</div>
+                <div style="font-size:11px;color:var(--ink-faint);">${escapeHTML(inv.email)}</div>
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="acceptInvitation('${inv.id}','${escapeHTML(inv.name)}','${escapeHTML(inv.email)}')">
+                <span class="icon">${getIcon('check')}</span>
+                接受
+              </button>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    } else {
+      pendingDiv.innerHTML = '';
+    }
+  } catch (error) {
+    console.error('載入邀請失敗:', error);
+  }
+}
+
+// 接受邀請
+async function acceptInvitation(inviterId, inviterName, inviterEmail){
+  const user = auth.currentUser;
+  if(!user) return;
+  
+  try {
+    // 1. 把對方加入我的成員列表（狀態為 accepted）
+    const inviterMember = {
+      id: inviterId,
+      name: inviterName,
+      email: inviterEmail,
+      color: '#9AABB8',
+      status: 'accepted'
+    };
+    
+    if(!DB.members.find(m => m.email === inviterEmail)){
+      DB.members.push(inviterMember);
+    }
+    
+    // 2. 更新對方的成員列表，把我的狀態改為 accepted
+    const inviterRef = firebase.firestore().collection('users').doc(inviterId);
+    const inviterDoc = await inviterRef.get();
+    
+    if(inviterDoc.exists){
+      const inviterData = inviterDoc.data();
+      const members = inviterData.members || [];
+      const myIndex = members.findIndex(m => m.email === user.email);
+      
+      if(myIndex !== -1){
+        members[myIndex].status = 'accepted';
+        await inviterRef.update({ members: members });
+      }
+    }
+    
+    // 3. 儲存並重新渲染
+    persist();
+    await saveUserDataToFirestore();
+    
+    toast('已接受邀請！');
+    render();
+  } catch (error) {
+    console.error('接受邀請失敗:', error);
+    toast('接受邀請失敗');
+  }
 }
 
 /* ================= Theme System ================= */

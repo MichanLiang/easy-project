@@ -3,7 +3,8 @@ let chatUnsubscribe = null;
 
 function viewChat(){
   const user = auth.currentUser;
-  const contacts = DB.members.filter(m => m.id !== DB.currentUser);
+  // 只顯示已接受邀請的成員
+  const contacts = DB.members.filter(m => m.id !== user?.uid && m.status === 'accepted');
   
   if(!state.chatContact && contacts.length) {
     state.chatContact = contacts[0].id;
@@ -16,7 +17,7 @@ function viewChat(){
   
   return `
   <div class="page-title">聊天室</div>
-  <div class="page-sub">與團隊成員即時溝通</div>
+  <div class="page-sub">與已接受邀請的團隊成員即時溝通</div>
   <div class="chat-wrap">
     <div class="chat-list">
       ${contacts.map(c => `
@@ -25,8 +26,13 @@ function viewChat(){
           <div style="flex:1;min-width:0;">
             <div class="cn">${escapeHTML(c.name)}</div>
             <div style="font-size:11px;color:var(--ink-faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-              ${c.isPending ? '<span style="color:var(--amber);">等待註冊</span>' : (c.email || '')}
+              ${c.email || ''}
             </div>
+          </div>
+          <div id="unread-${c.id}" style="display:none;width:8px;height:8px;border-radius:50%;background:var(--accent);"></div>
+        </div>`).join('')}
+      ${contacts.length === 0 ? '<div class="empty" style="padding:20px;">尚無已接受邀請的成員</div>' : ''}
+    </div>
           </div>
           ${c.isPending ? '<span class="tag" style="font-size:10px;background:var(--amber-soft);color:var(--amber-dark);">待加入</span>' : ''}
           <div id="unread-${c.id}" style="display:none;width:8px;height:8px;border-radius:50%;background:var(--accent);"></div>

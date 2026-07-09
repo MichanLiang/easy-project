@@ -14,5 +14,8 @@ firebase.initializeApp(firebaseConfig);
 // 取得 Auth 實例
 const auth = firebase.auth();
 
+// 取得 Firestore 實例
+const db = firebase.firestore();
+
 // Google 登入_provider
 const googleProvider = new firebase.auth.GoogleAuthProvider();

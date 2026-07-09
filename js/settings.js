@@ -194,6 +194,10 @@ async function inviteMember(){
   
   DB.members.push(newMember);
   persist();
+  
+  // 同步到 Firestore
+  await syncMembersToFirestore();
+  
   document.getElementById('inviteEmail').value = '';
   render();
 }

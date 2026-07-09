@@ -85,6 +85,9 @@ async function loadUserData(uid) {
 // 同步成員列表（新用戶註冊時自動加入）
 async function syncMemberList(user) {
   try {
+    // 先從 Firestore 載入成員
+    await loadMembersFromFirestore();
+    
     // 檢查是否已在成員列表中
     const existingMember = DB.members.find(m => m.email === user.email);
     
@@ -117,6 +120,10 @@ async function syncMemberList(user) {
       DB.members.push(newMember);
       persist();
     }
+    
+    // 同步到 Firestore
+    await syncMembersToFirestore();
+    
   } catch (error) {
     console.error('同步成員列表失敗:', error);
   }

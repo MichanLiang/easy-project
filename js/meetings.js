@@ -44,7 +44,7 @@ function viewMeetingsGlobal(){
   </div>
   <div class="card">
     ${all.length? all.map(m=>`
-      <div class="meeting-item" style="cursor:${m.projectId?'pointer':'default'}" ${m.projectId?`onclick="go('project',{projectId:'${m.projectId}',docId:'${m.id}'})"`:''}>
+      <div class="meeting-item" style="cursor:pointer" onclick="${m.projectId?`go('project',{projectId:'${m.projectId}',docId:'${m.id}'})`:`openStandaloneMeetingModal('${m.id}')`}">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;">
           <div class="mt">${escapeHTML(m.name||m.title||'速記')}</div>
           ${!m.projectId?`<button class="btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();deleteStandaloneMeeting('${m.id}')">
@@ -71,20 +71,28 @@ function viewMeetingsGlobal(){
   </div>`;
 }
 
-function openStandaloneMeetingModal(){
+function openStandaloneMeetingModal(meetingId){
+  const meeting = meetingId ? DB.meetings.find(m => m.id === meetingId) : null;
+  const isEdit = !!meeting;
+  
   openModal(`
-    <div class="modal-head"><h3>新增速記</h3></div>
+    <div class="modal-head"><h3>${isEdit ? '編輯速記' : '新增速記'}</h3></div>
     <div class="modal-body">
-      <div class="field"><label>標題</label><input type="text" id="smTitle" placeholder="會議或速記標題"></div>
+      <div class="field"><label>標題</label><input type="text" id="smTitle" value="${escapeHTML(meeting?.title || '')}" placeholder="會議或速記標題"></div>
       <div class="field-row">
-        <div class="field"><label>日期</label><input type="date" id="smDate" value="${todayStr()}"></div>
-        <div class="field"><label>出席人員</label><input type="text" id="smAttendees" placeholder="選填"></div>
+        <div class="field"><label>日期</label><input type="date" id="smDate" value="${meeting?.date || todayStr()}"></div>
+        <div class="field"><label>出席人員</label><input type="text" id="smAttendees" value="${escapeHTML(meeting?.attendees || '')}" placeholder="選填"></div>
       </div>
-      <div class="field"><label>內容</label><textarea id="smContent" style="min-height:180px" placeholder="快速記下重點…"></textarea></div>
+      <div class="field"><label>內容</label><textarea id="smContent" style="min-height:180px" placeholder="快速記下重點…">${escapeHTML(meeting?.content || '')}</textarea></div>
     </div>
     <div class="modal-foot">
+      ${isEdit ? `<button class="btn btn-danger" onclick="deleteStandaloneMeeting('${meetingId}');closeModal();">
+        <span class="icon">${getIcon('trash')}</span>
+        刪除
+      </button>` : ''}
+      <div style="flex:1"></div>
       <button class="btn" onclick="closeModal()">取消</button>
-      <button class="btn btn-primary" onclick="saveStandaloneMeeting()">
+      <button class="btn btn-primary" onclick="saveStandaloneMeeting('${meetingId || ''}')">
         <span class="icon">${getIcon('save')}</span>
         儲存
       </button>
@@ -93,10 +101,26 @@ function openStandaloneMeetingModal(){
   setTimeout(initIcons, 10);
 }
 
-function saveStandaloneMeeting(){
+function saveStandaloneMeeting(meetingId){
   const title = document.getElementById('smTitle').value.trim();
   if(!title){ toast('請輸入標題'); return; }
-  DB.meetings.push({id:uid(), title, date:document.getElementById('smDate').value, attendees:document.getElementById('smAttendees').value, content:document.getElementById('smContent').value});
+  
+  const payload = {
+    title,
+    date: document.getElementById('smDate').value,
+    attendees: document.getElementById('smAttendees').value,
+    content: document.getElementById('smContent').value
+  };
+  
+  if(meetingId){
+    // 編輯現有
+    const meeting = DB.meetings.find(m => m.id === meetingId);
+    Object.assign(meeting, payload);
+  } else {
+    // 新增
+    DB.meetings.push({id:uid(), ...payload});
+  }
+  
   persist(); closeModal(); render();
 }
 

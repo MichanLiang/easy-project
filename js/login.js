@@ -4,10 +4,11 @@ function renderLoginPage(){
   <div id="loginPage" style="min-height:100vh;width:100%;display:flex;align-items:center;justify-content:center;background:var(--bg);padding:20px;position:fixed;top:0;left:0;right:0;bottom:0;z-index:1000;">
     <div style="max-width:380px;width:100%;">
       <!-- Logo -->
-      <div style="text-align:center;margin-bottom:32px;">
-        <div style="width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,var(--accent) 0%,var(--accent-light) 100%);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:700;font-size:28px;margin:0 auto 16px;box-shadow:0 6px 20px var(--accent-glow);">
+      <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:32px;">
+        <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,var(--accent) 0%,var(--accent-light) 100%);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:700;font-size:24px;box-shadow:0 6px 20px var(--accent-glow);">
           簡
         </div>
+        <h1 style="font-family:var(--font-display);font-size:32px;font-weight:700;color:var(--ink);margin:0;">簡案</h1>
       </div>
       
       <!-- Login Card -->

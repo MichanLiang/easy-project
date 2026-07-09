@@ -36,3 +36,33 @@ function renderLoginPage(){
     </div>
   </div>`;
 }
+
+// 處理 Google 登入
+async function handleGoogleLogin(){
+  try {
+    // 確保 Firebase 已初始化
+    if (typeof firebase === 'undefined' || !firebase.auth) {
+      toast('Firebase 尚未載入，請稍後再試');
+      return;
+    }
+    
+    const result = await auth.signInWithPopup(googleProvider);
+    const user = result.user;
+    toast(`歡迎，${user.displayName}！`);
+  } catch (error) {
+    console.error('登入失敗:', error);
+    if (error.code === 'auth/popup-blocked') {
+      toast('彈出視窗被封鎖，請允許彈出視窗');
+    } else if (error.code !== 'auth/popup-closed-by-user') {
+      toast('登入失敗：' + error.message);
+    }
+  }
+}
+
+// 訪客登入（使用本地資料）
+function handleGuestLogin(){
+  state.isLoggedIn = true;
+  state.isGuest = true;
+  localStorage.setItem('jianban_guest', 'true');
+  render();
+}

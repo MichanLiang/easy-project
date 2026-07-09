@@ -1,8 +1,89 @@
 /* ================= TODOS (global + per-project) ================= */
 const STATUS_LABEL = {pending:'待處理', doing:'進行中', testing:'測試中', done:'已完成'};
 
+// Firestore 同步任務
+async function syncTodosToFirestore(){
+  const user = auth.currentUser;
+  if(!user || state.isGuest) return;
+  
+  try {
+    const todosRef = firebase.firestore().collection('users').doc(user.uid).collection('todos');
+    
+    // 同步本地任務到 Firestore
+    for(const todo of DB.todos){
+      await todosRef.doc(todo.id).set({
+        ...todo,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+  } catch (error) {
+    console.error('同步任務失敗:', error);
+  }
+}
+
+// 從 Firestore 載入任務
+async function loadTodosFromFirestore(){
+  const user = auth.currentUser;
+  if(!user || state.isGuest) return;
+  
+  try {
+    const todosRef = firebase.firestore().collection('users').doc(user.uid).collection('todos');
+    const snapshot = await todosRef.get();
+    
+    const firestoreTodos = [];
+    snapshot.forEach(doc => firestoreTodos.push({id: doc.id, ...doc.data()}));
+    
+    // 合併本地和 Firestore 任務（避免重複）
+    const localIds = new DB.todos.map(t => t.id);
+    for(const todo of firestoreTodos){
+      if(!localIds.includes(todo.id)){
+        DB.todos.push(todo);
+      }
+    }
+    
+    persist();
+  } catch (error) {
+    console.error('載入任務失敗:', error);
+  }
+}
+
+// 從其他成員處取得指派給我的任務
+async function loadAssignedTasks(){
+  const user = auth.currentUser;
+  if(!user || state.isGuest) return;
+  
+  try {
+    // 查詢所有成員的 Firestore，找指派給我的任務
+    for(const member of DB.members){
+      if(member.id === user.uid) continue;
+      
+      try {
+        const todosRef = firebase.firestore().collection('users').doc(member.id).collection('todos');
+        const snapshot = await todosRef.where('assignee', '==', user.uid).get();
+        
+        snapshot.forEach(doc => {
+          const task = {id: doc.id, ...doc.data()};
+          // 檢查是否已存在
+          if(!DB.todos.find(t => t.id === task.id)){
+            DB.todos.push(task);
+          }
+        });
+      } catch (e) {
+        // 可能無權限存取
+      }
+    }
+    
+    persist();
+  } catch (error) {
+    console.error('載入指派任務失敗:', error);
+  }
+}
+
 function renderTodoRow(t){
   const overdue = t.date && t.date < todayStr() && t.status!=='done';
+  const assignee = memberById(t.assignee);
+  const assignedBy = t.assignedBy ? memberById(t.assignedBy) : null;
+  
   return `
   <div class="todo-row">
     <div class="todo-check ${t.status==='done'?'done':''}" onclick="toggleTodoDone('${t.id}')">
@@ -16,9 +97,12 @@ function renderTodoRow(t){
           ${t.date}
         </span>`:''}
         <span class="tag ${t.status}">${STATUS_LABEL[t.status]}</span>
-        ${t.assignee?`<span style="display:flex;align-items:center;gap:4px;">
-          <span class="icon" style="width:12px;height:12px;">${getIcon('user')}</span>
-          ${memberName(t.assignee)}
+        ${assignee?`<span style="display:flex;align-items:center;gap:4px;">
+          ${avatarHTML(t.assignee, 16)}
+          ${escapeHTML(assignee.name)}
+        </span>`:''}
+        ${assignedBy && assignedBy.id !== DB.currentUser ?`<span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--ink-faint);">
+          由 ${escapeHTML(assignedBy.name)} 指派
         </span>`:''}
         ${t.projectId?`<span style="display:flex;align-items:center;gap:4px;">
           <span class="icon" style="width:12px;height:12px;">${getIcon('folder')}</span>
@@ -36,7 +120,9 @@ function renderTodoRow(t){
 function toggleTodoDone(id){
   const t = DB.todos.find(x=>x.id===id);
   t.status = t.status==='done' ? 'pending' : 'done';
-  persist(); render();
+  persist(); 
+  syncTodosToFirestore();
+  render();
 }
 
 function viewTodos(){
@@ -44,7 +130,10 @@ function viewTodos(){
   const inbox = DB.todos.filter(t=>t.assignee===me && t.assignedBy && t.assignedBy!==me);
   const mine = DB.todos.filter(t=>!(t.assignedBy && t.assignedBy!==me && t.assignee===me));
   
-  setTimeout(initIcons, 10);
+  setTimeout(() => {
+    initIcons();
+    loadAssignedTasks();
+  }, 10);
   
   return `
     <div class="page-title">待辦清單</div>
@@ -85,7 +174,12 @@ function openTodoModal(todoId, presetProjectId){
   const t = todoId ? DB.todos.find(x=>x.id===todoId) : {id:null,title:'',date:'',status:'pending',note:'',assignee:DB.currentUser,assignedBy:DB.currentUser,projectId:presetProjectId||null,attachments:[]};
   const projOptions = `<option value="">（個人，不屬於任何專案）</option>` + DB.projects.map(p=>`<option value="${p.id}" ${t.projectId===p.id?'selected':''}>${escapeHTML(p.name)}</option>`).join('');
   const proj = DB.projects.find(p=>p.id===t.projectId);
-  const assigneeOptions = (proj?proj.memberIds:DB.members.map(m=>m.id)).map(id=>`<option value="${id}" ${t.assignee===id?'selected':''}>${memberName(id)}</option>`).join('');
+  
+  // 建立指派選項（包含所有團隊成員）
+  const assigneeOptions = DB.members.map(m => 
+    `<option value="${m.id}" ${t.assignee===m.id?'selected':''}>${escapeHTML(m.name)} ${m.email ? '(' + m.email + ')' : ''}</option>`
+  ).join('');
+  
   openModal(`
     <div class="modal-head"><h3>${todoId?'編輯任務':'新增任務'}</h3></div>
     <div class="modal-body">
@@ -130,8 +224,10 @@ function openTodoModal(todoId, presetProjectId){
 function refreshTodoAssigneeOptions(){
   const pid = document.getElementById('tdProject').value;
   const proj = DB.projects.find(p=>p.id===pid);
-  const ids = proj ? proj.memberIds : DB.members.map(m=>m.id);
-  document.getElementById('tdAssignee').innerHTML = ids.map(id=>`<option value="${id}">${memberName(id)}</option>`).join('');
+  // 顯示所有團隊成員
+  document.getElementById('tdAssignee').innerHTML = DB.members.map(m => 
+    `<option value="${m.id}">${escapeHTML(m.name)} ${m.email ? '(' + m.email + ')' : ''}</option>`
+  ).join('');
 }
 
 function saveTodoItem(todoId){
@@ -146,12 +242,24 @@ function saveTodoItem(todoId){
     note: document.getElementById('tdNote').value,
     attachments: readAttachList('tdAttachList'),
   };
-  if(todoId){ const t = DB.todos.find(x=>x.id===todoId); Object.assign(t, payload); }
-  else { DB.todos.push({id:uid(), assignedBy: DB.currentUser, ...payload}); }
-  persist(); closeModal(); render();
+  
+  if(todoId){ 
+    const t = DB.todos.find(x=>x.id===todoId); 
+    Object.assign(t, payload); 
+  } else { 
+    DB.todos.push({id:uid(), assignedBy: DB.currentUser, ...payload}); 
+  }
+  
+  persist(); 
+  syncTodosToFirestore();
+  closeModal(); 
+  render();
 }
 
 function deleteTodoItem(id){
   DB.todos = DB.todos.filter(t=>t.id!==id);
-  persist(); closeModal(); render();
+  persist(); 
+  syncTodosToFirestore();
+  closeModal(); 
+  render();
 }

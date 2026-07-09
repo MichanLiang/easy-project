@@ -29,15 +29,8 @@ function viewSettings(){
             <div style="font-size:13px;color:var(--ink-faint);">${user.email || ''}</div>
           </div>
         </div>
-        <button class="btn" onclick="signOut()" style="width:100%;">
-          <span class="icon">${getIcon('logOut')}</span>
-          登出
-        </button>
       ` : `
         <div style="text-align:center;padding:20px 0;">
-          <div style="font-size:48px;margin-bottom:12px;opacity:0.3;">
-            <span class="icon">${getIcon('user')}</span>
-          </div>
           <div style="color:var(--ink-faint);margin-bottom:18px;">登入以同步你的資料到雲端</div>
           <button class="btn btn-primary" onclick="signInWithGoogle()" style="width:100%;">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -50,10 +43,6 @@ function viewSettings(){
           </button>
         </div>
       `}
-      <div class="hint" style="margin-top:12px;">
-        <span class="icon" style="width:14px;height:14px;">${getIcon('info')}</span>
-        登入後可將資料同步至雲端
-      </div>
     </div>
     
     <!-- 外觀設定 -->
@@ -100,29 +89,39 @@ function viewSettings(){
     
     <!-- 團隊成員 -->
     <div class="card" style="padding:24px;">
-      <div class="section-title" style="margin-top:0;justify-content:space-between;display:flex;">
-        <span style="display:flex;align-items:center;gap:8px;">
-          <span class="icon">${getIcon('users')}</span>
-          團隊成員
-        </span>
-        <button class="btn btn-sm" onclick="addMember()">
-          <span class="icon">${getIcon('plus')}</span>
-          新增成員
-        </button>
+      <div class="section-title" style="margin-top:0">
+        <span class="icon">${getIcon('users')}</span>
+        團隊成員
       </div>
-      ${DB.members.filter(m=>m.id!==DB.currentUser).map(m=>`
-        <div class="member-row">
-          ${avatarHTML(m.id,34)}
-          <div style="flex:1;font-weight:600;">${escapeHTML(m.name)}</div>
-          <button class="btn-ghost btn-icon btn-sm" onclick="removeMember('${m.id}')">
-            <span class="icon">${getIcon('x')}</span>
+      
+      <!-- 邀請成員 -->
+      <div style="margin-bottom:16px;">
+        <div style="display:flex;gap:8px;">
+          <input type="email" id="inviteEmail" placeholder="輸入 Gmail 信箱邀請" style="flex:1;border:1px solid var(--line);border-radius:var(--radius);padding:10px 14px;background:var(--bg-subtle);">
+          <button class="btn btn-primary btn-sm" onclick="inviteMember()">
+            <span class="icon">${getIcon('send')}</span>
+            邀請
           </button>
-        </div>`).join('') || `<div class="empty">尚無其他成員</div>`}
+        </div>
+      </div>
+      
+      <!-- 成員列表 -->
+      <div id="memberList">
+        ${DB.members.map(m=>`
+          <div class="member-row" data-uid="${m.id}">
+            ${avatarHTML(m.id,34)}
+            <div style="flex:1;">
+              <div style="font-weight:600;">${escapeHTML(m.name)}</div>
+              <div style="font-size:11px;color:var(--ink-faint);">${m.email || '本地用戶'}</div>
+            </div>
+            ${m.id === DB.currentUser ? '<span style="font-size:11px;color:var(--accent);">你</span>' : 
+              `<button class="btn-ghost btn-icon btn-sm" onclick="removeMember('${m.id}')">
+                <span class="icon">${getIcon('x')}</span>
+              </button>`
+            }
+          </div>`).join('')}
+      </div>
     </div>
-  </div>
-  <div class="hint" style="margin-top:24px;max-width:860px;">
-    <span class="icon" style="width:14px;height:14px;">${getIcon('info')}</span>
-    此工具為單機示範版本（資料儲存在本機瀏覽器 localStorage），登入後可將資料同步至 Firebase 雲端。
   </div>
   `;
 }
@@ -130,14 +129,8 @@ function viewSettings(){
 // 莫蘭迪色系
 function getMorandiColors(){
   return [
-    '#C4A4A4', // morandi rose
-    '#9AABB8', // morandi blue
-    '#A8B5A0', // morandi green
-    '#B8A9C9', // morandi mauve
-    '#C9B896', // morandi sand
-    '#C4A882', // morandi terracotta
-    '#9CA89C', // morandi sage
-    '#C2B5B5', // morandi dusty
+    '#C4A4A4', '#9AABB8', '#A8B5A0', '#B8A9C9',
+    '#C9B896', '#C4A882', '#9CA89C', '#C2B5B5',
   ];
 }
 
@@ -154,18 +147,57 @@ function saveMyProfile(){
   persist(); toast('已儲存'); render();
 }
 
-function addMember(){
-  const name = prompt('成員姓名');
-  if(name && name.trim()){
-    const colors = getMorandiColors();
-    DB.members.push({id:uid(), name:name.trim(), color: colors[DB.members.length%colors.length]});
-    persist(); render();
+// 邀請成員
+async function inviteMember(){
+  const email = document.getElementById('inviteEmail').value.trim();
+  if(!email){ toast('請輸入信箱'); return; }
+  if(!email.includes('@')){ toast('請輸入有效的信箱'); return; }
+  
+  // 檢查是否已存在
+  const exists = DB.members.some(m => m.email === email);
+  if(exists){ toast('此成員已存在'); return; }
+  
+  const colors = getMorandiColors();
+  const newMember = {
+    id: uid(),
+    name: email.split('@')[0],
+    email: email,
+    color: colors[DB.members.length % colors.length],
+    isPending: true
+  };
+  
+  DB.members.push(newMember);
+  persist();
+  
+  // 嘗試從 Firestore 查找用戶
+  try {
+    const usersRef = firebase.firestore().collection('users');
+    const query = await usersRef.where('email', '==', email).get();
+    
+    if(!query.empty){
+      // 找到用戶，更新 ID
+      const userDoc = query.docs[0];
+      newMember.id = userDoc.id;
+      newMember.isPending = false;
+      persist();
+      toast(`已邀請 ${email}`);
+    } else {
+      toast(`邀請已發送，等待 ${email} 註冊`);
+    }
+  } catch (error) {
+    console.error('邀請失敗:', error);
   }
+  
+  document.getElementById('inviteEmail').value = '';
+  render();
 }
 
 function removeMember(id){
   if(!confirm('確定移除此成員？')) return;
   DB.members = DB.members.filter(m=>m.id!==id);
+  DB.projects.forEach(p => {
+    p.memberIds = p.memberIds.filter(mid => mid !== id);
+  });
   persist(); render();
 }
 
@@ -178,27 +210,18 @@ function setTheme(theme){
 
 function applyTheme(theme){
   let effectiveTheme = theme;
-  
   if(theme === 'system'){
     effectiveTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   }
-  
   document.documentElement.setAttribute('data-theme', effectiveTheme);
 }
 
-// 初始化主題
 function initTheme(){
   const savedTheme = localStorage.getItem('jianban_theme') || 'light';
   applyTheme(savedTheme);
-  
-  // 監聽系統主題變化
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-    const savedTheme = localStorage.getItem('jianban_theme');
-    if(savedTheme === 'system'){
-      applyTheme('system');
-    }
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    if(localStorage.getItem('jianban_theme') === 'system') applyTheme('system');
   });
 }
 
-// 頁面載入時初始化
 initTheme();

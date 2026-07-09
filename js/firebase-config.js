@@ -1,12 +1,11 @@
 // Firebase 配置
-// 請替換為你的 Firebase 專案配置
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyBfW8ZSogMbUtAri4ExMqowcq-gFw2Cwa4",
+  authDomain: "easy-project-d520f.firebaseapp.com",
+  projectId: "easy-project-d520f",
+  storageBucket: "easy-project-d520f.firebasestorage.app",
+  messagingSenderId: "671655396632",
+  appId: "1:671655396632:web:6b1f90d228c86b752e8a6d"
 };
 
 // 初始化 Firebase

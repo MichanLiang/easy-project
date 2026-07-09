@@ -20,16 +20,68 @@ function renderMeetingDoc(p,d){
 }
 
 function updateMeetingField(pId,dId,field,val){
-  const p=DB.projects.find(x=>x.id===pId); const d=p.docs.find(x=>x.id===dId);
-  d[field]=val; persist();
+  const p=DB.projects.find(x=>x.id===pId); 
+  if(!p) return;
+  const d=p.docs.find(x=>x.id===dId);
+  if(!d) return;
+  d[field]=val; 
+  persist();
 }
 
 function viewMeetingsGlobal(){
-  const projMeetings = DB.projects.flatMap(p=>(p.docs||[]).filter(d=>d.type==='meeting').map(d=>({...d, projectId:p.id, projectName:p.name})));
-  const standalone = DB.meetings || [];
-  const all = [...standalone.map(m=>({...m, projectName:null})), ...projMeetings].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  if(!DB.meetings) DB.meetings = [];
+  
+  const projMeetings = [];
+  DB.projects.forEach(p => {
+    if(p.docs) {
+      p.docs.filter(d => d.type === 'meeting').forEach(d => {
+        projMeetings.push({...d, projectId: p.id, projectName: p.name});
+      });
+    }
+  });
+  
+  const standalone = DB.meetings;
+  const all = [...standalone.map(m => ({...m, projectName: null})), ...projMeetings];
+  all.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   
   setTimeout(initIcons, 10);
+  
+  let listHTML = '';
+  if(all.length) {
+    listHTML = all.map(m => {
+      const clickAction = m.projectId 
+        ? `go('project',{projectId:'${m.projectId}',docId:'${m.id}'})` 
+        : `openStandaloneMeetingModal('${m.id}')`;
+      const deleteBtn = !m.projectId 
+        ? `<button class="btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();deleteStandaloneMeeting('${m.id}')"><span class="icon">${getIcon('x')}</span></button>` 
+        : '';
+      
+      return `
+      <div class="meeting-item" style="cursor:pointer" onclick="${clickAction}">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div class="mt">${escapeHTML(m.name || m.title || '速記')}</div>
+          ${deleteBtn}
+        </div>
+        <div class="mm" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <span style="display:flex;align-items:center;gap:4px;">
+            <span class="icon" style="width:12px;height:12px;">${getIcon('clock')}</span>
+            ${m.date || ''}
+          </span>
+          ${m.attendees ? `<span style="display:flex;align-items:center;gap:4px;">
+            <span class="icon" style="width:12px;height:12px;">${getIcon('users')}</span>
+            ${escapeHTML(m.attendees)}
+          </span>` : ''}
+          <span style="display:flex;align-items:center;gap:4px;">
+            <span class="icon" style="width:12px;height:12px;">${getIcon('folder')}</span>
+            ${m.projectName ? escapeHTML(m.projectName) : '獨立速記'}
+          </span>
+        </div>
+        <div class="mc">${escapeHTML((m.content || '').slice(0, 140))}${(m.content || '').length > 140 ? '…' : ''}</div>
+      </div>`;
+    }).join('');
+  } else {
+    listHTML = `<div class="empty">還沒有任何會議記錄</div>`;
+  }
   
   return `
   <div style="display:flex;justify-content:space-between;align-items:flex-start;">
@@ -43,31 +95,7 @@ function viewMeetingsGlobal(){
     </button>
   </div>
   <div class="card">
-    ${all.length? all.map(m=>`
-      <div class="meeting-item" style="cursor:pointer" onclick="${m.projectId?`go('project',{projectId:'${m.projectId}',docId:'${m.id}'})`:`openStandaloneMeetingModal('${m.id}')`}">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-          <div class="mt">${escapeHTML(m.name||m.title||'速記')}</div>
-          ${!m.projectId?`<button class="btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();deleteStandaloneMeeting('${m.id}')">
-            <span class="icon">${getIcon('x')}</span>
-          </button>`:''}
-        </div>
-        <div class="mm" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <span style="display:flex;align-items:center;gap:4px;">
-            <span class="icon" style="width:12px;height:12px;">${getIcon('clock')}</span>
-            ${m.date||''}
-          </span>
-          ${m.attendees?`<span style="display:flex;align-items:center;gap:4px;">
-            <span class="icon" style="width:12px;height:12px;">${getIcon('users')}</span>
-            ${escapeHTML(m.attendees)}
-          </span>`:''}
-          <span style="display:flex;align-items:center;gap:4px;">
-            <span class="icon" style="width:12px;height:12px;">${getIcon('folder')}</span>
-            ${m.projectName?escapeHTML(m.projectName):'獨立速記'}
-          </span>
-        </div>
-        <div class="mc">${escapeHTML((m.content||'').slice(0,140))}${(m.content||'').length>140?'…':''}</div>
-      </div>
-    `).join('') : `<div class="empty">還沒有任何會議記錄</div>`}
+    ${listHTML}
   </div>`;
 }
 
@@ -105,6 +133,8 @@ function saveStandaloneMeeting(meetingId){
   const title = document.getElementById('smTitle').value.trim();
   if(!title){ toast('請輸入標題'); return; }
   
+  if(!DB.meetings) DB.meetings = [];
+  
   const payload = {
     title,
     date: document.getElementById('smDate').value,
@@ -112,15 +142,11 @@ function saveStandaloneMeeting(meetingId){
     content: document.getElementById('smContent').value
   };
   
-  if(!DB.meetings) DB.meetings = [];
-  
   if(meetingId){
-    // 編輯現有
     const meeting = DB.meetings.find(m => m.id === meetingId);
     if(meeting) Object.assign(meeting, payload);
   } else {
-    // 新增
-    DB.meetings.push({id:uid(), ...payload});
+    DB.meetings.push({id: uid(), ...payload});
   }
   
   persist(); closeModal(); render();
@@ -128,6 +154,6 @@ function saveStandaloneMeeting(meetingId){
 
 function deleteStandaloneMeeting(id){
   if(!DB.meetings) DB.meetings = [];
-  DB.meetings = DB.meetings.filter(x=>x.id!==id);
+  DB.meetings = DB.meetings.filter(x => x.id !== id);
   persist(); render();
 }

@@ -33,12 +33,6 @@ function viewChat(){
         </div>`).join('')}
       ${contacts.length === 0 ? '<div class="empty" style="padding:20px;">尚無成員，請先邀請</div>' : ''}
     </div>
-          </div>
-          ${c.isPending ? '<span class="tag" style="font-size:10px;background:var(--amber-soft);color:var(--amber-dark);">待加入</span>' : ''}
-          <div id="unread-${c.id}" style="display:none;width:8px;height:8px;border-radius:50%;background:var(--accent);"></div>
-        </div>`).join('')}
-      ${contacts.length === 0 ? '<div class="empty" style="padding:20px;">尚無成員，請先邀請</div>' : ''}
-    </div>
     <div class="chat-main">
       <div class="chat-head">
         ${state.chatContact ? memberName(state.chatContact) : '選擇聯絡人'}
@@ -142,8 +136,8 @@ async function sendChatMsg(){
   const contact = DB.members.find(m => m.id === state.chatContact);
   
   // 檢查對方是否已註冊
-  if(contact && contact.isPending){
-    toast('對方尚未註冊，無法傳送訊息');
+  if(contact && contact.status === 'pending'){
+    toast('對方尚未接受邀請，無法傳送訊息');
     return;
   }
   

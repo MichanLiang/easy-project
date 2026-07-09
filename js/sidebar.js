@@ -27,7 +27,7 @@ function renderSidebar(){
     </div>
     <div class="nav">
       ${NAV_ITEMS.map(it=>`
-        <div class="navitem ${state.route===it.key || (it.key==='projects'&&state.route==='project') ?'active':''}" onclick="go('${it.key}');closeSidebarOnMobile();" title="${it.label}">
+        <div class="navitem ${state.route===it.key || (it.key==='projects'&&state.route==='project') ?'active':''}" onclick="navigateAndCloseSidebar('${it.key}')" title="${it.label}">
           <span class="ic">${getIcon(it.icon)}</span><span class="navlabel">${it.label}</span>
         </div>`).join('')}
     </div>
@@ -71,6 +71,16 @@ function closeSidebarOnMobile(){
     const overlay = document.querySelector('.sidebar-overlay');
     if(overlay) overlay.classList.remove('active');
   }
+}
+
+// 先收起側邊欄再跳轉
+function navigateAndCloseSidebar(route){
+  if(window.innerWidth <= 768){
+    state.sidebarCollapsed = true;
+    const overlay = document.querySelector('.sidebar-overlay');
+    if(overlay) overlay.classList.remove('active');
+  }
+  go(route);
 }
 
 // 用戶選單

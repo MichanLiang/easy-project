@@ -46,12 +46,13 @@ async function handleGoogleLogin(){
       return;
     }
     
-    // 先登出，讓用戶可以選擇帳號
-    if(auth.currentUser){
-      await auth.signOut();
-    }
+    // 設定登入參數，強制顯示帳號選擇
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({
+      prompt: 'select_account'
+    });
     
-    const result = await auth.signInWithPopup(googleProvider);
+    const result = await auth.signInWithPopup(provider);
     const user = result.user;
     
     // 清除訪客狀態，標記已登入
@@ -75,12 +76,13 @@ async function handleGoogleLogin(){
 // 從設定頁登入（訪客連接帳號）
 async function signInWithGoogle(){
   try {
-    // 先登出，讓用戶可以選擇帳號
-    if(auth.currentUser){
-      await auth.signOut();
-    }
+    // 設定登入參數，強制顯示帳號選擇
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({
+      prompt: 'select_account'
+    });
     
-    const result = await auth.signInWithPopup(googleProvider);
+    const result = await auth.signInWithPopup(provider);
     const user = result.user;
     
     // 清除訪客狀態，標記已登入

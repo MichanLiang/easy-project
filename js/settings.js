@@ -207,9 +207,13 @@ function removeMember(id){
   if(!confirm('確定移除此成員？')) return;
   DB.members = DB.members.filter(m=>m.id!==id);
   DB.projects.forEach(p => {
-    p.memberIds = p.memberIds.filter(mid => mid !== id);
+    if(p.memberIds) {
+      p.memberIds = p.memberIds.filter(mid => mid !== id);
+    }
   });
-  persist(); render();
+  persist();
+  saveUserDataToFirestore();
+  render();
 }
 
 /* ================= Theme System ================= */

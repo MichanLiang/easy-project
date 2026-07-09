@@ -49,14 +49,14 @@ function renderSidebar(){
           <span class="ic">${getIcon(it.icon)}</span><span class="navlabel">${it.label}</span>
         </div>`).join('')}
     </div>
-    <div class="sidebar-footer" onclick="go('settings')" style="cursor:pointer;" title="個人設定">
-      <div class="avatar" style="width:34px;height:34px;background:${userColor};font-size:13px;">
+    <div class="sidebar-footer" style="cursor:pointer;" title="個人設定">
+      <div class="avatar" style="width:34px;height:34px;background:${userColor};font-size:13px;cursor:pointer;" onclick="go('settings')">
         ${photoURL 
           ? `<img src="${photoURL}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`
           : initials(displayName)
         }
       </div>
-      <div class="sidebar-user-meta" style="flex:1;min-width:0;">
+      <div class="sidebar-user-meta" style="flex:1;min-width:0;cursor:pointer;" onclick="go('settings')">
         <div class="name">${escapeHTML(displayName)}</div>
         <div class="role">${escapeHTML(displayEmail)}</div>
       </div>

@@ -37,7 +37,7 @@ function closeModal(){
 function checkLoginState(){
   // 檢查是否為訪客
   const isGuest = localStorage.getItem('jianban_guest') === 'true';
-  if(isGuest){
+  if(isGuest && !auth.currentUser){
     state.isGuest = true;
     state.isLoggedIn = true;
     return true;
@@ -45,9 +45,15 @@ function checkLoginState(){
   
   // 檢查 Firebase 使用者
   if(auth.currentUser){
+    // 如果之前是訪客但現在已登入，清除訪客狀態
+    if(isGuest) {
+      localStorage.removeItem('jianban_guest');
+    }
+    state.isGuest = false;
     state.isLoggedIn = true;
     return true;
   }
   
+  // 未登入
   return false;
 }

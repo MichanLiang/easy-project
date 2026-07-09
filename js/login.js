@@ -46,6 +46,11 @@ async function handleGoogleLogin(){
       return;
     }
     
+    // 先登出，讓用戶可以選擇帳號
+    if(auth.currentUser){
+      await auth.signOut();
+    }
+    
     const result = await auth.signInWithPopup(googleProvider);
     const user = result.user;
     
@@ -70,6 +75,11 @@ async function handleGoogleLogin(){
 // 從設定頁登入（訪客連接帳號）
 async function signInWithGoogle(){
   try {
+    // 先登出，讓用戶可以選擇帳號
+    if(auth.currentUser){
+      await auth.signOut();
+    }
+    
     const result = await auth.signInWithPopup(googleProvider);
     const user = result.user;
     

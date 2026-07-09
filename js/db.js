@@ -1,10 +1,8 @@
 /* ================= DB ================= */
-// 全域資料（使用 localStorage 暫存）
+// 全域資料
 let DB={
   currentUser:'user1',
-  members:[
-    {id:'user1', name:'我', color:'#C4A4A4'}
-  ],
+  members:[],
   projects:[],
   backlogItems:[],
   meetings:[],
@@ -12,92 +10,116 @@ let DB={
   todos:[]
 };
 
-// Firestore 同步成員列表
-async function syncMembersToFirestore(){
+// 當前用戶 ID
+function getCurrentUserId(){
   const user = auth.currentUser;
-  if(!user || state.isGuest) return;
-  
-  try {
-    // 使用團隊 ID（目前用專案名稱的 hash）
-    const teamId = getTeamId();
-    const teamRef = firebase.firestore().collection('teams').doc(teamId);
-    
-    // 取得現有成員
-    const teamDoc = await teamRef.get();
-    const existingMembers = teamDoc.exists ? (teamDoc.data().members || []) : [];
-    
-    // 合併成員（避免重複）
-    const memberMap = new Map();
-    existingMembers.forEach(m => memberMap.set(m.id, m));
-    DB.members.forEach(m => memberMap.set(m.id, m));
-    
-    const mergedMembers = Array.from(memberMap.values());
-    
-    // 儲存到 Firestore
-    await teamRef.set({
-      members: mergedMembers,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-    
-    // 更新本地
-    DB.members = mergedMembers;
-    persist();
-    
-  } catch (error) {
-    console.error('同步成員列表失敗:', error);
-  }
+  return user ? user.uid : 'guest';
 }
 
-// 從 Firestore 載入成員列表
-async function loadMembersFromFirestore(){
+// 取得用戶資料的 Firestore 路徑
+function getUserDocRef(){
+  const userId = getCurrentUserId();
+  return firebase.firestore().collection('users').doc(userId);
+}
+
+// 從 Firestore 載入用戶資料
+async function loadUserDataFromFirestore(){
   const user = auth.currentUser;
   if(!user || state.isGuest) return;
   
   try {
-    const teamId = getTeamId();
-    const teamDoc = await firebase.firestore().collection('teams').doc(teamId).get();
+    const docRef = getUserDocRef();
+    const doc = await docRef.get();
     
-    if(teamDoc.exists){
-      const members = teamDoc.data().members || [];
-      
-      // 合併本地和遠端成員
-      const memberMap = new Map();
-      DB.members.forEach(m => memberMap.set(m.id, m));
-      members.forEach(m => memberMap.set(m.id, m));
-      
-      DB.members = Array.from(memberMap.values());
-      persist();
+    if(doc.exists){
+      const data = doc.data();
+      DB.projects = data.projects || [];
+      DB.backlogItems = data.backlogItems || [];
+      DB.meetings = data.meetings || [];
+      DB.todos = data.todos || [];
+      DB.chats = data.chats || {};
+      DB.members = data.members || [];
+    } else {
+      // 新用戶，初始化空白資料
+      DB.projects = [];
+      DB.backlogItems = [];
+      DB.meetings = [];
+      DB.todos = [];
+      DB.chats = {};
+      DB.members = [];
+      await saveUserDataToFirestore();
     }
+    
+    persist();
   } catch (error) {
-    console.error('載入成員列表失敗:', error);
+    console.error('載入用戶資料失敗:', error);
   }
 }
 
-// 取得團隊 ID（根據邀請關係）
-function getTeamId(){
+// 儲存用戶資料到 Firestore
+async function saveUserDataToFirestore(){
   const user = auth.currentUser;
-  if(!user) return 'default';
+  if(!user || state.isGuest) return;
   
-  // 使用所有成員 email 排序後組合
-  const emails = DB.members
-    .map(m => m.email)
-    .filter(e => e)
-    .sort();
-  
-  if(emails.length === 0) return user.uid;
-  
-  // 使用第一個 email 作為團隊 ID 基礎
-  return emails[0].replace('@', '_at_');
+  try {
+    const docRef = getUserDocRef();
+    await docRef.set({
+      projects: DB.projects,
+      backlogItems: DB.backlogItems,
+      meetings: DB.meetings,
+      todos: DB.todos,
+      chats: DB.chats,
+      members: DB.members,
+      email: user.email,
+      displayName: user.displayName,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  } catch (error) {
+    console.error('儲存用戶資料失敗:', error);
+  }
 }
 
-// 離線資料（空白初始狀態）
-const SEED={
-  projects:[],
-  backlogItems:[],
-  meetings:[],
-  chats:{},
-  todos:[]
-};
+// 自動同步到 Firestore
+let syncTimeout = null;
+function autoSync(){
+  if(syncTimeout) clearTimeout(syncTimeout);
+  syncTimeout = setTimeout(async () => {
+    await saveUserDataToFirestore();
+  }, 1000); // 1秒後自動同步
+}
+
+// 從團隊同步成員列表
+async function syncTeamMembers(){
+  const user = auth.currentUser;
+  if(!user || state.isGuest) return;
+  
+  try {
+    // 查詢所有用戶，找有邀請過我的人
+    const usersSnapshot = await firebase.firestore().collection('users').get();
+    
+    usersSnapshot.forEach(doc => {
+      const userData = doc.data();
+      if(userData.members && userData.members.some(m => m.email === user.email)){
+        // 這個用戶邀請過我，加入他的成員列表
+        const myMember = {
+          id: user.uid,
+          name: user.displayName || user.email.split('@')[0],
+          email: user.email,
+          color: '#C4A4A4'
+        };
+        
+        // 檢查是否已存在
+        if(!DB.members.find(m => m.email === user.email)){
+          DB.members.push(myMember);
+          persist();
+          saveUserDataToFirestore();
+        }
+      }
+    });
+  } catch (error) {
+    console.error('同步團隊成員失敗:', error);
+  }
+}
 
 function uid(){return '_'+Math.random().toString(36).slice(2,10);}
 function todayStr(){return new Date().toISOString().slice(0,10);}
@@ -112,20 +134,14 @@ function initDB(){
       if(!DB.backlogItems) DB.backlogItems = [];
       if(!DB.todos) DB.todos = [];
       if(!DB.projects) DB.projects = [];
-      if(!DB.members) DB.members = [{id:'user1', name:'我', color:'#C4A4A4'}];
+      if(!DB.members) DB.members = [];
     }catch(e){}
-  }else{
-    Object.assign(DB,SEED);
-    // 確保 currentUser 存在於 members 中
-    if(!DB.members.find(m=>m.id===DB.currentUser)){
-      DB.members.push({id:DB.currentUser,name:'我',color:'#C4A4A4'});
-    }
-    persist();
   }
 }
 
 function persist(){
   localStorage.setItem('jianban_db',JSON.stringify(DB));
+  autoSync();
 }
 
 initDB();

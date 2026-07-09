@@ -114,12 +114,13 @@ function viewSettings(){
               <div style="font-weight:600;">${escapeHTML(m.name)}</div>
               <div style="font-size:11px;color:var(--ink-faint);">${m.email || '本地用戶'}</div>
             </div>
-            ${m.id === DB.currentUser ? '<span style="font-size:11px;color:var(--accent);">你</span>' : 
+            ${m.email === auth.currentUser?.email ? '<span style="font-size:11px;color:var(--accent);">你</span>' : 
               `<button class="btn-ghost btn-icon btn-sm" onclick="removeMember('${m.id}')">
                 <span class="icon">${getIcon('x')}</span>
               </button>`
             }
           </div>`).join('')}
+        ${DB.members.length === 0 ? '<div class="empty">尚未邀請成員</div>' : ''}
       </div>
     </div>
   </div>
@@ -196,7 +197,7 @@ async function inviteMember(){
   persist();
   
   // 同步到 Firestore
-  await syncMembersToFirestore();
+  await saveUserDataToFirestore();
   
   document.getElementById('inviteEmail').value = '';
   render();

@@ -134,6 +134,9 @@ function renderTodoRow(t){
         </span>`:''}
       </div>
     </div>
+    <button class="btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();confirmDeleteTodo('${t.id}')" style="flex-shrink:0;color:var(--ink-faint);">
+      <span class="icon" style="width:16px;height:16px;">${getIcon('x')}</span>
+    </button>
   </div>`;
 }
 
@@ -142,7 +145,90 @@ function toggleTodoDone(id){
   t.status = t.status==='done' ? 'pending' : 'done';
   persist(); 
   syncTodosToFirestore();
+  // 如果是別人指派的任務，同步更新對方的狀態
+  if(t.assignedBy && t.assignedBy !== DB.currentUser){
+    syncTaskToAssigner(t);
+  }
   render();
+}
+
+function confirmDeleteTodo(id){
+  const t = DB.todos.find(x=>x.id===id);
+  if(!t) return;
+  openModal(`
+    <div class="modal-head"><h3>確認刪除</h3></div>
+    <div class="modal-body">
+      <p>確定要刪除「${escapeHTML(t.title)}」嗎？</p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal()">取消</button>
+      <button class="btn btn-danger" onclick="deleteTodoItem('${id}')">
+        <span class="icon">${getIcon('trash')}</span>
+        刪除
+      </button>
+    </div>
+  `);
+  setTimeout(initIcons, 10);
+}
+
+// 同步任務狀態到指派人那邊
+async function syncTaskToAssigner(task){
+  const user = auth.currentUser;
+  if(!user || state.isGuest) return;
+  
+  try {
+    const assignerRef = firebase.firestore().collection('users').doc(task.assignedBy);
+    const assignerDoc = await assignerRef.get();
+    
+    if(assignerDoc.exists){
+      const assignerData = assignerDoc.data();
+      const todos = assignerData.todos || [];
+      const taskIndex = todos.findIndex(t => t.id === task.id);
+      
+      if(taskIndex !== -1){
+        todos[taskIndex].status = task.status;
+        await assignerRef.update({ todos: todos });
+      }
+    }
+  } catch (error) {
+    console.error('同步任務到指派人失敗:', error);
+  }
+}
+
+// 刪除任務並同步到指派人
+async function deleteTodoItem(id){
+  const t = DB.todos.find(x=>x.id===id);
+  
+  // 如果是別人指派的任務，從對方那邊也刪除
+  if(t && t.assignedBy && t.assignedBy !== DB.currentUser){
+    await deleteTaskFromAssigner(t);
+  }
+  
+  DB.todos = DB.todos.filter(t=>t.id!==id);
+  persist(); 
+  syncTodosToFirestore();
+  closeModal(); 
+  render();
+}
+
+// 從指派人的 Firestore 刪除任務
+async function deleteTaskFromAssigner(task){
+  const user = auth.currentUser;
+  if(!user || state.isGuest) return;
+  
+  try {
+    const assignerRef = firebase.firestore().collection('users').doc(task.assignedBy);
+    const assignerDoc = await assignerRef.get();
+    
+    if(assignerDoc.exists){
+      const assignerData = assignerDoc.data();
+      const todos = assignerData.todos || [];
+      const newTodos = todos.filter(t => t.id !== task.id);
+      await assignerRef.update({ todos: newTodos });
+    }
+  } catch (error) {
+    console.error('從指派人刪除任務失敗:', error);
+  }
 }
 
 function viewTodos(){
@@ -276,14 +362,6 @@ function saveTodoItem(todoId){
     DB.todos.push({id:uid(), assignedBy: DB.currentUser, ...payload}); 
   }
   
-  persist(); 
-  syncTodosToFirestore();
-  closeModal(); 
-  render();
-}
-
-function deleteTodoItem(id){
-  DB.todos = DB.todos.filter(t=>t.id!==id);
   persist(); 
   syncTodosToFirestore();
   closeModal(); 

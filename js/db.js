@@ -6,7 +6,7 @@ let DB={
     {id:'user1', name:'我', color:'#C4A4A4'}
   ],
   projects:[],
-  backlog:[],
+  backlogItems:[],
   meetings:[],
   chats:{},
   todos:[]
@@ -127,15 +127,15 @@ const SEED={
       {id:'d5',name:'專案說明',type:'prd',content:'# App 開發\n開發跨平台行動應用程式'}
     ]}
   ],
-  backlog:[
+  backlogItems:[
     {id:'b1',title:'深色模式',desc:'支援深色主題',status:'approved',votes:5,labels:['功能','UI']},
     {id:'b2',title:'多語言支援',desc:'支援英文、日文',status:'new',votes:3,labels:['功能']},
     {id:'b3',title:'匯出 PDF',desc:'可將文件匯出為 PDF',status:'new',votes:2,labels:['功能']},
     {id:'b4',title:'效能優化',desc:'提升頁面載入速度',status:'planned',votes:4,labels:['技術']}
   ],
   meetings:[
-    {id:'m1',title:'產品規格確認',date:'2026-07-10',time:'14:00',summary:'確認第三版 PRD 內容，調整部分功能優先順序',attendees:['user1','user2']},
-    {id:'m2',title:'UI 設計評審',date:'2026-07-12',time:'10:00',summary:'討論首頁與產品頁的設計方向',attendees:['user1']}
+    {id:'m1',title:'產品規格確認',date:'2026-07-10',attendees:'user1, user2',content:'確認第三版 PRD 內容，調整部分功能優先順序'},
+    {id:'m2',title:'UI 設計評審',date:'2026-07-12',attendees:'user1',content:'討論首頁與產品頁的設計方向'}
   ],
   todos:[
     {id:'t1',title:'審核 PRD 文件',date:'2026-07-12',status:'pending',assignee:'user1',assignedBy:'user1',projectId:'p1',note:'需在下週前完成',attachments:[{name:'PRD v3',url:'#'}]},

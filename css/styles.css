@@ -1755,15 +1755,23 @@ svg.edges{
   /* 聊天室 */
   .chat-wrap{
     height:calc(100vh - 180px);
+    flex-direction:column !important;
   }
   .chat-list{
     width:100% !important;
-    max-height:200px;
+    max-height:180px;
     border-right:none !important;
     border-bottom:1px solid var(--line);
+    flex:none !important;
   }
   .chat-main{
     width:100% !important;
+    flex:1 !important;
+    min-height:0;
+  }
+  .chat-msgs{
+    min-height:0;
+    flex:1;
   }
   
   /* 設定頁 */

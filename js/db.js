@@ -150,7 +150,15 @@ function todayStr(){return new Date().toISOString().slice(0,10);}
 function initDB(){
   const raw=localStorage.getItem('jianban_db');
   if(raw){
-    try{Object.assign(DB,JSON.parse(raw));}catch(e){}
+    try{
+      Object.assign(DB,JSON.parse(raw));
+      // 確保必要欄位存在
+      if(!DB.meetings) DB.meetings = [];
+      if(!DB.backlogItems) DB.backlogItems = [];
+      if(!DB.todos) DB.todos = [];
+      if(!DB.projects) DB.projects = [];
+      if(!DB.members) DB.members = [{id:'user1', name:'我', color:'#C4A4A4'}];
+    }catch(e){}
   }else{
     Object.assign(DB,SEED);
     // 確保 currentUser 存在於 members 中

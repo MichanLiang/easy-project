@@ -25,8 +25,8 @@ function updateMeetingField(pId,dId,field,val){
 }
 
 function viewMeetingsGlobal(){
-  const projMeetings = DB.projects.flatMap(p=>p.docs.filter(d=>d.type==='meeting').map(d=>({...d, projectId:p.id, projectName:p.name})));
-  const standalone = DB.meetings;
+  const projMeetings = DB.projects.flatMap(p=>(p.docs||[]).filter(d=>d.type==='meeting').map(d=>({...d, projectId:p.id, projectName:p.name})));
+  const standalone = DB.meetings || [];
   const all = [...standalone.map(m=>({...m, projectName:null})), ...projMeetings].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   
   setTimeout(initIcons, 10);
@@ -112,10 +112,12 @@ function saveStandaloneMeeting(meetingId){
     content: document.getElementById('smContent').value
   };
   
+  if(!DB.meetings) DB.meetings = [];
+  
   if(meetingId){
     // 編輯現有
     const meeting = DB.meetings.find(m => m.id === meetingId);
-    Object.assign(meeting, payload);
+    if(meeting) Object.assign(meeting, payload);
   } else {
     // 新增
     DB.meetings.push({id:uid(), ...payload});
@@ -125,6 +127,7 @@ function saveStandaloneMeeting(meetingId){
 }
 
 function deleteStandaloneMeeting(id){
+  if(!DB.meetings) DB.meetings = [];
   DB.meetings = DB.meetings.filter(x=>x.id!==id);
   persist(); render();
 }

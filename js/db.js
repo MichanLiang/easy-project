@@ -100,16 +100,18 @@ async function syncTeamMembers(){
     usersSnapshot.forEach(doc => {
       const userData = doc.data();
       if(userData.members && userData.members.some(m => m.email === user.email)){
-        // 這個用戶邀請過我，我需要把他加入我的成員列表
+        // 這個用戶邀請過我，我需要把他加入我的成員列表（狀態為 pending）
         const inviterMember = {
           id: doc.id,
           name: userData.displayName || userData.email.split('@')[0],
           email: userData.email,
-          color: '#9AABB8'
+          color: '#9AABB8',
+          status: 'pending'
         };
         
         // 檢查是否已存在
-        if(!DB.members.find(m => m.email === userData.email)){
+        const existingMember = DB.members.find(m => m.email === userData.email);
+        if(!existingMember){
           DB.members.push(inviterMember);
           persist();
         }
@@ -119,7 +121,8 @@ async function syncTeamMembers(){
           id: user.uid,
           name: user.displayName || user.email.split('@')[0],
           email: user.email,
-          color: '#C4A4A4'
+          color: '#C4A4A4',
+          status: 'pending'
         };
         
         // 更新對方的成員列表

@@ -301,16 +301,19 @@ async function acceptInvitation(inviterId, inviterName, inviterEmail){
   if(!user) return;
   
   try {
-    // 1. 把對方加入我的成員列表（狀態為 accepted）
-    const inviterMember = {
-      id: inviterId,
-      name: inviterName,
-      email: inviterEmail,
-      color: '#9AABB8',
-      status: 'accepted'
-    };
-    
-    if(!DB.members.find(m => m.email === inviterEmail)){
+    // 1. 更新我的成員列表中對方的狀態為 accepted
+    const existingMember = DB.members.find(m => m.email === inviterEmail);
+    if(existingMember){
+      existingMember.status = 'accepted';
+    } else {
+      // 如果不存在，新增一個
+      const inviterMember = {
+        id: inviterId,
+        name: inviterName,
+        email: inviterEmail,
+        color: '#9AABB8',
+        status: 'accepted'
+      };
       DB.members.push(inviterMember);
     }
     

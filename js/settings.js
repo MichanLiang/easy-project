@@ -166,28 +166,34 @@ async function inviteMember(){
     isPending: true
   };
   
-  DB.members.push(newMember);
-  persist();
-  
   // 嘗試從 Firestore 查找用戶
   try {
-    const usersRef = firebase.firestore().collection('users');
-    const query = await usersRef.where('email', '==', email).get();
+    const usersSnapshot = await firebase.firestore().collection('users').get();
+    let found = false;
     
-    if(!query.empty){
-      // 找到用戶，更新 ID
-      const userDoc = query.docs[0];
-      newMember.id = userDoc.id;
-      newMember.isPending = false;
-      persist();
-      toast(`已邀請 ${email}`);
+    usersSnapshot.forEach(doc => {
+      const userData = doc.data();
+      if(userData.email === email){
+        // 找到用戶，使用他們的 UID
+        newMember.id = doc.id;
+        newMember.isPending = false;
+        newMember.name = userData.displayName || email.split('@')[0];
+        found = true;
+      }
+    });
+    
+    if(found){
+      toast(`已成功邀請 ${email}`);
     } else {
-      toast(`邀請已發送，等待 ${email} 註冊`);
+      toast(`邀請已發送，等待 ${email} 註冊後自動加入`);
     }
   } catch (error) {
-    console.error('邀請失敗:', error);
+    console.error('查詢用戶失敗:', error);
+    toast('邀請已發送');
   }
   
+  DB.members.push(newMember);
+  persist();
   document.getElementById('inviteEmail').value = '';
   render();
 }

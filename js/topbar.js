@@ -14,5 +14,11 @@ function renderTopbar(){
     const found = NAV_ITEMS.find(i=>i.key===state.route);
     crumb = `<div class="crumb"><b>${found?found.label:''}</b></div>`;
   }
-  return `<div class="topbar">${crumb}<div class="topbar-spacer"></div></div>`;
+  return `<div class="topbar">
+    <button class="btn-ghost btn-icon menu-toggle" onclick="toggleSidebar()">
+      <span class="icon">${getIcon('menu')}</span>
+    </button>
+    ${crumb}
+    <div class="topbar-spacer"></div>
+  </div>`;
 }

@@ -50,7 +50,16 @@ function renderSidebar(){
 }
 
 function toggleSidebar(){ 
-  state.sidebarCollapsed = !state.sidebarCollapsed; 
+  state.sidebarCollapsed = !state.sidebarCollapsed;
+  
+  // 手機版處理遮罩
+  if(window.innerWidth <= 768){
+    const overlay = document.querySelector('.sidebar-overlay');
+    if(overlay){
+      overlay.classList.toggle('active', !state.sidebarCollapsed);
+    }
+  }
+  
   render(); 
   setTimeout(initIcons, 10);
 }

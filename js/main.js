@@ -23,6 +23,7 @@ function render(){
     default: viewHTML = viewProjects();
   }
   app.innerHTML = `
+    <div class="sidebar-overlay" onclick="closeSidebarMobile()"></div>
     ${renderSidebar()}
     <div class="main">
       ${renderTopbar()}
@@ -30,6 +31,22 @@ function render(){
     </div>
   `;
   afterRender();
+}
+
+// 手機版關閉側邊欄
+function closeSidebarMobile(){
+  if(window.innerWidth <= 768){
+    state.sidebarCollapsed = true;
+    render();
+    setTimeout(initIcons, 10);
+  }
+}
+
+// 手機版開關側邊欄
+function toggleSidebarMobile(){
+  state.sidebarCollapsed = !state.sidebarCollapsed;
+  render();
+  setTimeout(initIcons, 10);
 }
 
 function afterRender(){

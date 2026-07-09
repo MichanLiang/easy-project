@@ -49,8 +49,9 @@ async function handleGoogleLogin(){
     const result = await auth.signInWithPopup(googleProvider);
     const user = result.user;
     
-    // 清除訪客狀態
+    // 清除訪客狀態，標記已登入
     localStorage.removeItem('jianban_guest');
+    localStorage.setItem('jianban_logged_in', 'true');
     state.isGuest = false;
     state.isLoggedIn = true;
     
@@ -72,8 +73,9 @@ async function signInWithGoogle(){
     const result = await auth.signInWithPopup(googleProvider);
     const user = result.user;
     
-    // 清除訪客狀態
+    // 清除訪客狀態，標記已登入
     localStorage.removeItem('jianban_guest');
+    localStorage.setItem('jianban_logged_in', 'true');
     state.isGuest = false;
     state.isLoggedIn = true;
     
@@ -111,6 +113,7 @@ function handleGuestLogin(){
 async function handleLogout(){
   try {
     localStorage.removeItem('jianban_guest');
+    localStorage.removeItem('jianban_logged_in');
     state.isGuest = false;
     state.isLoggedIn = false;
     
@@ -130,6 +133,7 @@ async function handleLogout(){
 async function handleChangeAccount(){
   try {
     localStorage.removeItem('jianban_guest');
+    localStorage.removeItem('jianban_logged_in');
     state.isGuest = false;
     state.isLoggedIn = false;
     

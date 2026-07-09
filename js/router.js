@@ -37,23 +37,20 @@ function closeModal(){
 function checkLoginState(){
   // 檢查是否為訪客
   const isGuest = localStorage.getItem('jianban_guest') === 'true';
-  if(isGuest && !auth.currentUser){
+  if(isGuest){
     state.isGuest = true;
     state.isLoggedIn = true;
     return true;
   }
   
-  // 檢查 Firebase 使用者
-  if(auth.currentUser){
-    // 如果之前是訪客但現在已登入，清除訪客狀態
-    if(isGuest) {
-      localStorage.removeItem('jianban_guest');
-    }
+  // 檢查是否已明確登入過（有 user data 在 localStorage）
+  const hasLoggedIn = localStorage.getItem('jianban_logged_in') === 'true';
+  if(hasLoggedIn && auth.currentUser){
     state.isGuest = false;
     state.isLoggedIn = true;
     return true;
   }
   
-  // 未登入
+  // 未登入，顯示登入頁面
   return false;
 }

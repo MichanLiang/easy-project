@@ -6,10 +6,10 @@ let authStateListener = null;
 
 // 初始化認證系統
 function initAuth() {
-  // 監聽登入狀態
+  // 只設置監聽器，不自動登入
   authStateListener = auth.onAuthStateChanged(async (user) => {
-    if (user) {
-      // 已登入
+    if (user && localStorage.getItem('jianban_logged_in') === 'true') {
+      // 已登入且有標記
       currentUser = {
         uid: user.uid,
         displayName: user.displayName || '使用者',
@@ -37,12 +37,6 @@ function initAuth() {
       }
       
       console.log('使用者已登入:', user.displayName);
-    } else if (!state.isGuest) {
-      // 未登入且非訪客
-      currentUser = null;
-      state.isLoggedIn = false;
-      render();
-      console.log('使用者已登出');
     }
   });
 }

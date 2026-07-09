@@ -18,20 +18,23 @@ function initAuth() {
         emailVerified: user.emailVerified
       };
       
-      state.isLoggedIn = true;
-      state.isGuest = false;
-      
-      // 儲存使用者基本資料到 Firestore
-      await saveUserBasicInfo(user);
-      
-      // 從 Firestore 載入用戶資料
-      await loadUserDataFromFirestore();
-      
-      // 從團隊同步成員
-      await syncTeamMembers();
-      
-      // 重新渲染
-      render();
+      // 只有非訪客模式才更新狀態
+      if(!state.isGuest) {
+        state.isLoggedIn = true;
+        state.isGuest = false;
+        
+        // 儲存使用者基本資料到 Firestore
+        await saveUserBasicInfo(user);
+        
+        // 從 Firestore 載入用戶資料
+        await loadUserDataFromFirestore();
+        
+        // 從團隊同步成員
+        await syncTeamMembers();
+        
+        // 重新渲染
+        render();
+      }
       
       console.log('使用者已登入:', user.displayName);
     } else if (!state.isGuest) {

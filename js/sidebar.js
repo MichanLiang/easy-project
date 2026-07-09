@@ -10,11 +10,29 @@ const NAV_ITEMS = [
 
 function renderSidebar(){
   const c = state.sidebarCollapsed;
-  const me = memberById(DB.currentUser);
   const user = auth.currentUser;
-  const displayName = state.isGuest ? '訪客' : (user?.displayName || me.name);
-  const displayEmail = state.isGuest ? '本地儲存' : (user?.email || '');
-  const photoURL = state.isGuest ? null : user?.photoURL;
+  
+  // 取得顯示名稱和頭像
+  let displayName, displayEmail, photoURL, userColor;
+  
+  if(state.isGuest) {
+    displayName = '訪客';
+    displayEmail = '本地儲存';
+    photoURL = null;
+    userColor = '#C4A4A4';
+  } else if(user) {
+    displayName = user.displayName || '使用者';
+    displayEmail = user.email || '';
+    photoURL = user.photoURL;
+    // 從成員列表找顏色
+    const member = DB.members.find(m => m.email === user.email);
+    userColor = member ? member.color : '#C4A4A4';
+  } else {
+    displayName = '未登入';
+    displayEmail = '';
+    photoURL = null;
+    userColor = '#C4A4A4';
+  }
   
   return `
   <div class="sidebar ${c?'collapsed':''}">
@@ -32,7 +50,7 @@ function renderSidebar(){
         </div>`).join('')}
     </div>
     <div class="sidebar-footer" onclick="go('settings')" style="cursor:pointer;" title="個人設定">
-      <div class="avatar" style="width:34px;height:34px;background:${me.color};font-size:13px;">
+      <div class="avatar" style="width:34px;height:34px;background:${userColor};font-size:13px;">
         ${photoURL 
           ? `<img src="${photoURL}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`
           : initials(displayName)

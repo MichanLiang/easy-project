@@ -48,13 +48,53 @@ async function handleGoogleLogin(){
     
     const result = await auth.signInWithPopup(googleProvider);
     const user = result.user;
+    
+    // 清除訪客狀態
+    localStorage.removeItem('jianban_guest');
+    state.isGuest = false;
+    state.isLoggedIn = true;
+    
     toast(`歡迎，${user.displayName}！`);
+    render();
   } catch (error) {
     console.error('登入失敗:', error);
     if (error.code === 'auth/popup-blocked') {
       toast('彈出視窗被封鎖，請允許彈出視窗');
     } else if (error.code !== 'auth/popup-closed-by-user') {
       toast('登入失敗：' + error.message);
+    }
+  }
+}
+
+// 從設定頁登入（訪客連接帳號）
+async function signInWithGoogle(){
+  try {
+    const result = await auth.signInWithPopup(googleProvider);
+    const user = result.user;
+    
+    // 清除訪客狀態
+    localStorage.removeItem('jianban_guest');
+    state.isGuest = false;
+    state.isLoggedIn = true;
+    
+    // 更新當前用戶資訊
+    currentUser = {
+      uid: user.uid,
+      displayName: user.displayName || '使用者',
+      email: user.email,
+      photoURL: user.photoURL
+    };
+    
+    toast(`已連接帳號：${user.displayName}`);
+    
+    // 強制重新渲染
+    setTimeout(() => render(), 100);
+  } catch (error) {
+    console.error('連接帳號失敗:', error);
+    if (error.code === 'auth/popup-blocked') {
+      toast('彈出視窗被封鎖，請允許彈出視窗');
+    } else if (error.code !== 'auth/popup-closed-by-user') {
+      toast('連接失敗：' + error.message);
     }
   }
 }

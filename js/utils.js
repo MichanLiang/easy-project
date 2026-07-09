@@ -5,7 +5,11 @@ function fmtDate(d){ if(!d) return ''; const [y,m,day]=d.split('-'); return `${m
 
 function shiftDate(n){const d=new Date();d.setDate(d.getDate()+n);return d.toISOString().slice(0,10);}
 
-function escapeHTML(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function escapeHTML(s){ 
+  if(Array.isArray(s)) s = s.join(', ');
+  if(typeof s !== 'string') s = String(s || '');
+  return s.replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); 
+}
 
 function memberById(id){ return DB.members.find(m=>m.id===id); }
 function memberName(id){ const m=memberById(id); return m? m.name : '未知'; }

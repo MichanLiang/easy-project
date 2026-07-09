@@ -148,7 +148,8 @@ function toggleTodoDone(id){
 function viewTodos(){
   const me = DB.currentUser;
   const inbox = DB.todos.filter(t=>t.assignee===me && t.assignedBy && t.assignedBy!==me);
-  const mine = DB.todos.filter(t=>!(t.assignedBy && t.assignedBy!==me && t.assignee===me));
+  const assigned = DB.todos.filter(t=>t.assignedBy===me && t.assignee && t.assignee!==me);
+  const mine = DB.todos.filter(t=>!(t.assignedBy && t.assignedBy!==me && t.assignee===me) && !(t.assignedBy===me && t.assignee && t.assignee!==me));
   
   setTimeout(() => {
     initIcons();
@@ -157,12 +158,17 @@ function viewTodos(){
   
   return `
     <div class="page-title">待辦清單</div>
-    <div class="page-sub">收件匣是別人指派給你的任務，下方則是你自己建立或負責的任務</div>
+    <div class="page-sub">收件匣是別人指派給你的任務，指派是你分配給別人的任務，我的任務是你自己負責的</div>
     <div class="section-title">
       <span class="dot" style="background:var(--accent)"></span>
       收件匣 ${inbox.length?`<span style="color:var(--ink-faint);font-weight:500">(${inbox.length})</span>`:''}
     </div>
     <div class="card">${inbox.length? inbox.map(renderTodoRow).join('') : `<div class="empty">目前沒有人指派任務給你</div>`}</div>
+    <div class="section-title">
+      <span class="dot" style="background:var(--purple)"></span>
+      指派 ${assigned.length?`<span style="color:var(--ink-faint);font-weight:500">(${assigned.length})</span>`:''}
+    </div>
+    <div class="card">${assigned.length? assigned.map(renderTodoRow).join('') : `<div class="empty">你還沒有指派任務給其他人</div>`}</div>
     <div class="section-title" style="justify-content:space-between">
       <span style="display:flex;align-items:center;gap:8px">
         <span class="dot" style="background:var(--teal)"></span>

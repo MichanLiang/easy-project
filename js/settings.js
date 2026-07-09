@@ -300,11 +300,14 @@ async function acceptInvitation(inviterId, inviterName, inviterEmail){
   const user = auth.currentUser;
   if(!user) return;
   
+  console.log('接受邀請:', inviterId, inviterName, inviterEmail);
+  
   try {
     // 1. 更新我的成員列表中對方的狀態為 accepted
     const existingMember = DB.members.find(m => m.email === inviterEmail);
     if(existingMember){
       existingMember.status = 'accepted';
+      console.log('更新現有成員狀態為 accepted');
     } else {
       // 如果不存在，新增一個
       const inviterMember = {
@@ -315,6 +318,7 @@ async function acceptInvitation(inviterId, inviterName, inviterEmail){
         status: 'accepted'
       };
       DB.members.push(inviterMember);
+      console.log('新增成員');
     }
     
     // 2. 更新對方的成員列表，把我的狀態改為 accepted
@@ -324,11 +328,18 @@ async function acceptInvitation(inviterId, inviterName, inviterEmail){
     if(inviterDoc.exists){
       const inviterData = inviterDoc.data();
       const members = inviterData.members || [];
+      console.log('對方的成員列表:', members);
+      
       const myIndex = members.findIndex(m => m.email === user.email);
+      console.log('我的索引:', myIndex);
       
       if(myIndex !== -1){
         members[myIndex].status = 'accepted';
+        console.log('更新對方的成員狀態:', members[myIndex]);
         await inviterRef.update({ members: members });
+        console.log('已更新對方的成員列表');
+      } else {
+        console.log('在對方的成員列表中找不到我');
       }
     }
     

@@ -33,8 +33,11 @@ async function loadTodosFromFirestore(){
     const firestoreTodos = [];
     snapshot.forEach(doc => firestoreTodos.push({id: doc.id, ...doc.data()}));
     
+    // 確保 DB.todos 是陣列
+    if(!Array.isArray(DB.todos)) DB.todos = [];
+    
     // 合併本地和 Firestore 任務（避免重複）
-    const localIds = new DB.todos.map(t => t.id);
+    const localIds = DB.todos.map(t => t.id);
     for(const todo of firestoreTodos){
       if(!localIds.includes(todo.id)){
         DB.todos.push(todo);
@@ -51,6 +54,9 @@ async function loadTodosFromFirestore(){
 async function loadAssignedTasks(){
   const user = auth.currentUser;
   if(!user || state.isGuest) return;
+  
+  // 確保 DB.todos 是陣列
+  if(!Array.isArray(DB.todos)) DB.todos = [];
   
   try {
     // 查詢所有成員的 Firestore，找指派給我的任務

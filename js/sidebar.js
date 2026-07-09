@@ -102,7 +102,23 @@ function navigateAndCloseSidebar(route){
 // 用戶選單
 function openUserMenu(){
   const user = auth.currentUser;
-  const me = memberById(DB.currentUser);
+  
+  // 取得或建立當前用戶的 member 資料
+  let me = user ? DB.members.find(m => m.email === user.email) : null;
+  if(!me && user) {
+    me = {
+      id: user.uid,
+      name: user.displayName || '使用者',
+      email: user.email,
+      color: '#C4A4A4'
+    };
+    DB.members.push(me);
+    persist();
+  }
+  if(!me) {
+    me = { id: 'guest', name: '訪客', color: '#C4A4A4' };
+  }
+  
   const displayName = state.isGuest ? '訪客' : (user?.displayName || me.name);
   const displayEmail = state.isGuest ? '本地儲存模式' : (user?.email || '');
   const photoURL = state.isGuest ? null : user?.photoURL;

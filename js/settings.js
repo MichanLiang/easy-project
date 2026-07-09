@@ -1,8 +1,25 @@
 /* ================= SETTINGS ================= */
 function viewSettings(){
-  const me = memberById(DB.currentUser);
-  const currentTheme = localStorage.getItem('jianban_theme') || 'light';
   const user = auth.currentUser;
+  
+  // 取得或建立當前用戶的 member 資料
+  let me = user ? DB.members.find(m => m.email === user.email) : null;
+  if(!me && user) {
+    // 如果用戶不在成員列表中，建立一個
+    me = {
+      id: user.uid,
+      name: user.displayName || '使用者',
+      email: user.email,
+      color: '#C4A4A4'
+    };
+    DB.members.push(me);
+    persist();
+  }
+  if(!me) {
+    me = { id: 'guest', name: '訪客', color: '#C4A4A4' };
+  }
+  
+  const currentTheme = localStorage.getItem('jianban_theme') || 'light';
   
   setTimeout(initIcons, 10);
   

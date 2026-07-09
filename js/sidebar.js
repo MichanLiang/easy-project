@@ -77,8 +77,6 @@ function closeSidebarOnMobile(){
 function navigateAndCloseSidebar(route){
   if(window.innerWidth <= 768){
     state.sidebarCollapsed = true;
-    const overlay = document.querySelector('.sidebar-overlay');
-    if(overlay) overlay.classList.remove('active');
   }
   go(route);
 }

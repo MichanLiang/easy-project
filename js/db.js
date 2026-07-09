@@ -100,7 +100,21 @@ async function syncTeamMembers(){
     usersSnapshot.forEach(doc => {
       const userData = doc.data();
       if(userData.members && userData.members.some(m => m.email === user.email)){
-        // 這個用戶邀請過我，加入他的成員列表
+        // 這個用戶邀請過我，我需要把他加入我的成員列表
+        const inviterMember = {
+          id: doc.id,
+          name: userData.displayName || userData.email.split('@')[0],
+          email: userData.email,
+          color: '#9AABB8'
+        };
+        
+        // 檢查是否已存在
+        if(!DB.members.find(m => m.email === userData.email)){
+          DB.members.push(inviterMember);
+          persist();
+        }
+        
+        // 同時把我加入對方的成員列表（如果還沒有的話）
         const myMember = {
           id: user.uid,
           name: user.displayName || user.email.split('@')[0],
@@ -108,14 +122,20 @@ async function syncTeamMembers(){
           color: '#C4A4A4'
         };
         
-        // 檢查是否已存在
-        if(!DB.members.find(m => m.email === user.email)){
-          DB.members.push(myMember);
-          persist();
-          saveUserDataToFirestore();
+        // 更新對方的成員列表
+        const otherUserRef = firebase.firestore().collection('users').doc(doc.id);
+        const otherUserData = doc.data();
+        const otherMembers = otherUserData.members || [];
+        
+        if(!otherMembers.find(m => m.email === user.email)){
+          otherMembers.push(myMember);
+          otherUserRef.update({ members: otherMembers });
         }
       }
     });
+    
+    // 儲存到 Firestore
+    await saveUserDataToFirestore();
   } catch (error) {
     console.error('同步團隊成員失敗:', error);
   }

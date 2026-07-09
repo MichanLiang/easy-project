@@ -3,9 +3,17 @@ function renderLoginPage(){
   return `
   <div id="loginPage" style="min-height:100vh;width:100%;display:flex;align-items:center;justify-content:center;background:var(--bg);padding:20px;position:fixed;top:0;left:0;right:0;bottom:0;z-index:1000;">
     <div style="max-width:380px;width:100%;">
+      <!-- Logo -->
+      <div style="text-align:center;margin-bottom:32px;">
+        <div style="width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,var(--accent) 0%,var(--accent-light) 100%);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:700;font-size:28px;margin:0 auto 16px;box-shadow:0 6px 20px var(--accent-glow);">
+          簡
+        </div>
+      </div>
+      
       <!-- Login Card -->
-      <div class="card" style="padding:40px 32px;">
-        <h1 style="font-family:var(--font-display);font-size:28px;font-weight:700;color:var(--ink);margin:0 0 28px;text-align:center;">簡案</h1>
+      <div class="card" style="padding:36px 32px;">
+        <h1 style="font-family:var(--font-display);font-size:22px;font-weight:700;color:var(--ink);margin:0 0 6px;text-align:center;">歡迎回來</h1>
+        <p style="color:var(--ink-faint);font-size:14px;margin:0 0 24px;text-align:center;">登入以同步你的資料到雲端</p>
         
         <!-- Google Login Button -->
         <button onclick="handleGoogleLogin()" style="width:100%;padding:14px 20px;border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:12px;font-size:15px;font-weight:600;color:var(--ink);transition:all var(--transition-fast);box-shadow:var(--shadow-sm);">

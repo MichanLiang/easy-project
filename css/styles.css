@@ -928,9 +928,9 @@ a:hover{color:var(--accent-dark);}
   text-transform:uppercase;
 }
 
-.feat-list{display:flex;flex-direction:column;gap:10px;}
+.feat-list{display:flex;flex-direction:column;}
 .feat-row{display:flex;gap:10px;align-items:center;}
-.feat-row input{flex:1;}
+.feat-row input{flex:1;border:none;background:transparent;font-size:14px;padding:4px 0;outline:none;}
 
 /* ============================================
    Gantt
@@ -972,8 +972,8 @@ a:hover{color:var(--accent-dark);}
 
 .gantt-bar{
   position:absolute;
-  top:10px;
-  height:22px;
+  top:4px;
+  height:18px;
   border-radius:6px;
   opacity:0.9;
 }
@@ -1335,6 +1335,21 @@ a:hover{color:var(--accent-dark);}
   outline:none;
   border-color:var(--accent);
   box-shadow:0 0 0 3px var(--accent-glow);
+}
+
+.chat-reply-bar{
+  display:none;
+  padding:8px 14px;
+  background:var(--bg-subtle);
+  border-top:1px solid var(--line);
+  font-size:13px;
+  align-items:center;
+  gap:8px;
+}
+
+.wf-selected{
+  outline:2px solid var(--accent) !important;
+  outline-offset:2px;
 }
 
 /* ============================================

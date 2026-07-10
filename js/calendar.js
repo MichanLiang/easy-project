@@ -14,6 +14,8 @@ function viewCalendar(){
   const monthTodos = DB.todos.filter(t=>t.date);
   const todayISO = todayStr();
   
+  const isCurrentMonth = y === new Date().getFullYear() && m === new Date().getMonth();
+  
   setTimeout(initIcons, 10);
   
   return `
@@ -31,10 +33,10 @@ function viewCalendar(){
       下個月
       <span class="icon">${getIcon('chevronRight')}</span>
     </button>
-    <button class="btn btn-sm" onclick="calToday()">
+    ${!isCurrentMonth ? `<button class="btn btn-sm" onclick="calToday()">
       <span class="icon">${getIcon('refresh')}</span>
       回到今天
-    </button>
+    </button>` : ''}
   </div>
   <div class="cal-grid">
     ${WEEKDAYS.map(w=>`<div class="cal-dow">${w}</div>`).join('')}

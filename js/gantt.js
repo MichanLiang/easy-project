@@ -41,9 +41,11 @@ function renderGantt(p,d){
           const startOffset = Math.round((new Date(t.start)-minD)/86400000);
           const span = Math.max(1, Math.round((new Date(t.end)-new Date(t.start))/86400000));
           return `<tr onclick="openGanttTaskModal('${p.id}','${d.id}','${t.id}')" style="cursor:pointer">
-            <td class="namecell">${escapeHTML(t.title)}</td>
-            <td colspan="${totalDays}" style="position:relative;padding:0;">
-              <div class="gantt-bar" style="left:${startOffset*dayWidth}px;width:${span*dayWidth-4}px;background:${t.color||'#C4A882'}"></div>
+            <td class="namecell" style="vertical-align:top;padding-top:6px;">${escapeHTML(t.title)}</td>
+            <td colspan="${totalDays}" style="position:relative;padding:0;height:42px;">
+              <div style="padding:6px 0;">
+                <div class="gantt-bar" style="left:${startOffset*dayWidth}px;width:${span*dayWidth-4}px;background:${t.color||'#C4A882'}"></div>
+              </div>
             </td>
           </tr>`;
         }).join('')}

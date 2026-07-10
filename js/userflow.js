@@ -6,11 +6,27 @@ function renderUserflow(p,d){
       <span class="icon">${getIcon('square')}</span>
       矩形（步驟）
     </button>
+    <button class="btn btn-sm" onclick="addUFNode('${p.id}','${d.id}','ellipse')">
+      <span class="icon">${getIcon('circle')}</span>
+      橢圓（開始/結束）
+    </button>
     <button class="btn btn-sm" onclick="addUFNode('${p.id}','${d.id}','diamond')">
       <span class="icon">${getIcon('hexagon')}</span>
       菱形（判斷）
     </button>
-    <span class="hint" style="margin:0">提示：拖曳節點移動位置；點兩個節點的圓點可連線；點右上角 ✕ 刪除</span>
+    <button class="btn btn-sm" onclick="addUFNode('${p.id}','${d.id}','subprocess')">
+      <span class="icon">${getIcon('layout')}</span>
+      子流程
+    </button>
+    <button class="btn btn-sm" onclick="addUFNode('${p.id}','${d.id}','document')">
+      <span class="icon">${getIcon('fileText')}</span>
+      文件
+    </button>
+    <button class="btn btn-sm" onclick="addUFNode('${p.id}','${d.id}','annotation')">
+      <span class="icon">${getIcon('messageSquare')}</span>
+      註解
+    </button>
+    <span class="hint" style="margin:0">提示：拖曳移動；Shift+點擊兩節點連線；右上角 ✕ 刪除</span>
   </div>
   <div class="board-wrap" id="ufBoardWrap">
     <div class="board-canvas" id="ufCanvas" data-pid="${p.id}" data-did="${d.id}">
@@ -21,9 +37,23 @@ function renderUserflow(p,d){
 }
 
 function renderUFNode(n){
-  const shapeStyle = n.shape==='diamond' ? `clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%);border-radius:0;` : '';
+  let shapeStyle = '';
+  let extraClass = n.shape;
+  
+  if(n.shape==='ellipse'){
+    shapeStyle = 'border-radius:50%;';
+  } else if(n.shape==='diamond'){
+    shapeStyle = 'clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%);border-radius:0;';
+  } else if(n.shape==='subprocess'){
+    shapeStyle = 'border-left:4px solid var(--accent);';
+  } else if(n.shape==='document'){
+    shapeStyle = 'border-bottom:3px wavy var(--ink-muted);';
+  } else if(n.shape==='annotation'){
+    shapeStyle = 'border:1px dashed var(--amber);background:var(--amber-soft) !important;';
+  }
+  
   return `
-  <div class="node ${n.shape}" id="node-${n.id}" data-id="${n.id}" style="left:${n.x}px;top:${n.y}px;width:${n.w}px;height:${n.h}px;${shapeStyle}">
+  <div class="node ${extraClass}" id="node-${n.id}" data-id="${n.id}" style="left:${n.x}px;top:${n.y}px;width:${n.w}px;height:${n.h}px;${shapeStyle}">
     <div class="txt" contenteditable="true" style="width:100%;outline:none;" onblur="updateUFNodeText('${n.id}',this.textContent)" onmousedown="event.stopPropagation()">${escapeHTML(n.text)}</div>
     <div class="del" onmousedown="event.stopPropagation()" onclick="deleteUFNode('${n.id}')">
       <span class="icon" style="width:10px;height:10px;">${getIcon('x')}</span>
@@ -45,7 +75,6 @@ function initUserflowBoard(d){
       if(e.target.closest('.del')||e.target.closest('.resize')) return;
       const id = nodeEl.dataset.id;
       if(e.shiftKey){
-        // connect mode
         if(ufState.connectFrom && ufState.connectFrom!==id){
           const proj = DB.projects.find(x=>x.id===pid); const doc = proj.docs.find(x=>x.id===did);
           doc.edges.push({from:ufState.connectFrom, to:id}); persist(); ufState.connectFrom=null; render();
@@ -103,7 +132,16 @@ function drawUFEdges(d){
 
 function addUFNode(pId,dId,shape){
   const p=DB.projects.find(x=>x.id===pId); const d=p.docs.find(x=>x.id===dId);
-  d.nodes.push({id:uid(), shape, x:80+Math.random()*300, y:80+Math.random()*200, w: shape==='diamond'?130:120, h: shape==='diamond'?80:56, text: shape==='diamond'?'條件？':'步驟'});
+  const defaults = {
+    rect:{w:120,h:56,text:'步驟'},
+    ellipse:{w:120,h:60,text:'開始'},
+    diamond:{w:130,h:80,text:'條件？'},
+    subprocess:{w:140,h:60,text:'子流程'},
+    document:{w:130,h:70,text:'文件內容'},
+    annotation:{w:140,h:60,text:'註解文字'},
+  };
+  const def = defaults[shape] || defaults.rect;
+  d.nodes.push({id:uid(), shape, x:80+Math.random()*300, y:80+Math.random()*200, w:def.w, h:def.h, text:def.text});
   persist(); render();
 }
 

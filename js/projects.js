@@ -62,7 +62,7 @@ function openNewProjectModal(){
   openModal(`
     <div class="modal-head"><h3>新增專案</h3></div>
     <div class="modal-body">
-      <div class="field"><label>專案名稱</label><input type="text" id="npName" placeholder="例如：日日小記錄 App"></div>
+      <div class="field"><label>專案名稱</label><input type="text" id="npName" placeholder="請輸入專案名稱"></div>
       <div class="field"><label>初始狀態</label>
         <select id="npStatus">${PROJECT_STATUSES.map(s=>`<option>${s}</option>`).join('')}</select>
       </div>
@@ -90,8 +90,11 @@ function createProject(){
   if(!name){ toast('請輸入專案名稱'); return; }
   const status = document.getElementById('npStatus').value;
   const memberIds = Array.from(document.querySelectorAll('#npMembers .mchip.on')).map(el=>el.dataset.id);
-  DB.projects.push({id:uid(), name, status, memberIds, docs:[]});
+  const newProject = {id:uid(), name, status, memberIds, docs:[]};
+  DB.projects.push(newProject);
   persist(); closeModal(); toast('專案已建立'); go('projects');
+  // 同步專案到所有成員
+  syncProjectToMembers(newProject);
 }
 
 function openProjectSettingsModal(id){
@@ -131,6 +134,8 @@ function saveProjectSettings(id){
   p.status = document.getElementById('epStatus').value;
   p.memberIds = Array.from(document.querySelectorAll('#epMembers .mchip.on')).map(el=>el.dataset.id);
   persist(); closeModal(); toast('已儲存'); render();
+  // 同步更新到所有成員
+  syncProjectUpdateToMembers(p);
 }
 
 function deleteProject(id){
@@ -298,4 +303,52 @@ function renderPlainDoc(p,d){
 function updatePlainDoc(pId,dId,val){
   const p=DB.projects.find(x=>x.id===pId); const d=p.docs.find(x=>x.id===dId);
   d.content = val; persist();
+}
+
+// 同步專案到所有成員的 Firestore
+async function syncProjectToMembers(project){
+  const user = auth.currentUser;
+  if(!user || state.isGuest) return;
+  
+  for(const memberId of project.memberIds){
+    if(memberId === user.uid) continue;
+    try {
+      const memberRef = firebase.firestore().collection('users').doc(memberId);
+      const memberDoc = await memberRef.get();
+      if(memberDoc.exists){
+        const memberData = memberDoc.data();
+        const projects = memberData.projects || [];
+        // 如果該成員還沒有這個專案，就加入
+        if(!projects.find(p=>p.id===project.id)){
+          projects.push(project);
+          await memberRef.update({ projects });
+        }
+      }
+    } catch(e) { /* 可能無權限 */ }
+  }
+}
+
+// 同步專案更新到所有成員
+async function syncProjectUpdateToMembers(project){
+  const user = auth.currentUser;
+  if(!user || state.isGuest) return;
+  
+  for(const memberId of project.memberIds){
+    if(memberId === user.uid) continue;
+    try {
+      const memberRef = firebase.firestore().collection('users').doc(memberId);
+      const memberDoc = await memberRef.get();
+      if(memberDoc.exists){
+        const memberData = memberDoc.data();
+        const projects = memberData.projects || [];
+        const idx = projects.findIndex(p=>p.id===project.id);
+        if(idx !== -1){
+          projects[idx] = project;
+        } else {
+          projects.push(project);
+        }
+        await memberRef.update({ projects });
+      }
+    } catch(e) { /* 可能無權限 */ }
+  }
 }

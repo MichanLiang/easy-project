@@ -28,12 +28,12 @@ function renderPRD(p,d){
         <span class="icon" style="width:12px;height:12px;">${getIcon('clipboard')}</span>
         功能清單
       </div>
-      <div class="feat-list" id="featList">
+      <div class="feat-list" id="featList" style="border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;">
         ${d.features.map((f,i)=>`
-          <div class="feat-row">
-            <span style="color:var(--ink-faint)">•</span>
-            <input type="text" value="${escapeHTML(f)}" oninput="updatePrdFeature('${p.id}','${d.id}',${i},this.value)" placeholder="功能描述">
-            <button class="btn-ghost btn-icon btn-sm" onclick="removePrdFeature('${p.id}','${d.id}',${i})">
+          <div class="feat-row" style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line-light);background:var(--panel);${i===0?'border-radius:var(--radius) var(--radius) 0 0':''}${i===d.features.length-1?'border-bottom:none;border-radius:0 0 var(--radius) var(--radius)':''}">
+            <span style="color:var(--ink-faint);flex-shrink:0;width:20px;text-align:center;font-weight:600;">${i+1}.</span>
+            <input type="text" value="${escapeHTML(f)}" oninput="updatePrdFeature('${p.id}','${d.id}',${i},this.value)" placeholder="功能描述" style="flex:1;border:none;background:transparent;font-size:14px;padding:4px 0;outline:none;">
+            <button class="btn-ghost btn-icon btn-sm" onclick="removePrdFeature('${p.id}','${d.id}',${i})" style="flex-shrink:0;opacity:0.5;" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=0.5">
               <span class="icon">${getIcon('x')}</span>
             </button>
           </div>`).join('')}

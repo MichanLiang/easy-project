@@ -6,7 +6,10 @@ function viewBacklog(){
   if(filter==='__none') items = items.filter(i=>!i.projectId);
   else if(filter!=='all' && filter!=='__all') items = items.filter(i=>i.projectId===filter);
   
-  setTimeout(initIcons, 10);
+  setTimeout(() => {
+    initIcons();
+    loadProjectBacklogItems();
+  }, 10);
   
   return `
   <div style="display:flex;justify-content:space-between;align-items:flex-start;">
@@ -25,6 +28,35 @@ function viewBacklog(){
   <div class="card">
     ${items.length? items.map(i=>renderBacklogItem(i)).join('') : `<div class="empty"><div class="big"><span class="icon" style="font-size:48px;">${getIcon('lightbulb')}</span></div>目前沒有項目</div>`}
   </div>`;
+}
+
+// 從專案成員載入需求池項目
+async function loadProjectBacklogItems(){
+  const user = auth.currentUser;
+  if(!user || state.isGuest) return;
+  
+  try {
+    for(const project of DB.projects){
+      for(const memberId of project.memberIds){
+        if(memberId === user.uid) continue;
+        try {
+          const memberDoc = await firebase.firestore().collection('users').doc(memberId).get();
+          if(memberDoc.exists){
+            const memberData = memberDoc.data();
+            const memberBacklog = memberData.backlogItems || [];
+            for(const item of memberBacklog){
+              if(item.projectId === project.id && !DB.backlogItems.find(b=>b.id===item.id)){
+                DB.backlogItems.push(item);
+              }
+            }
+          }
+        } catch(e) { /* 可能無權限 */ }
+      }
+    }
+    persist();
+  } catch(error) {
+    console.error('載入專案需求池失敗:', error);
+  }
 }
 
 function setBacklogFilter(f){ state.backlogFilter = f==='__all'?'all':f; render(); }

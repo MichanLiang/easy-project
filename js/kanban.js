@@ -77,7 +77,7 @@ function openKcardModal(pId,dId,cardId,initCol){
       <div class="field"><label>標題</label><input type="text" id="kcTitle" value="${escapeHTML(c.title)}" placeholder="任務標題"></div>
       <div class="field-row">
         <div class="field"><label>狀態</label><select id="kcCol">${KANBAN_COLS.map(k=>`<option value="${k.key}" ${c.col===k.key?'selected':''}>${k.label}</option>`).join('')}</select></div>
-        <div class="field"><label>指派給</label><select id="kcAssignee"><option value="">未指派</option>${p.memberIds.map(id=>`<option value="${id}" ${c.assignee===id?'selected':''}>${memberName(id)}</option>`).join('')}</select></div>
+        <div class="field"><label>指派給</label><select id="kcAssignee"><option value="">未指派</option>${DB.members.map(m=>`<option value="${m.id}" ${c.assignee===m.id?'selected':''}>${escapeHTML(m.name)}</option>`).join('')}</select></div>
       </div>
       <div class="field"><label>截止日期</label><input type="date" id="kcDue" value="${c.due||''}"></div>
       <div class="field"><label>備註</label><textarea id="kcNote" placeholder="補充說明…">${escapeHTML(c.note||'')}</textarea></div>
@@ -137,13 +137,62 @@ function saveKcard(pId,dId,cardId){
     note: document.getElementById('kcNote').value,
     attachments: readAttachList('kcAttachList'),
   };
-  if(cardId){ Object.assign(d.cards.find(x=>x.id===cardId), payload); }
-  else { d.cards.push({id:uid(), ...payload}); }
+  if(cardId){ 
+    Object.assign(d.cards.find(x=>x.id===cardId), payload); 
+    // 同步更新對應的待辦任務
+    const card = d.cards.find(x=>x.id===cardId);
+    syncKcardToTodo(card, pId);
+  } else { 
+    const newCard = {id:uid(), ...payload};
+    d.cards.push(newCard);
+    // 建立對應的待辦任務
+    createTodoFromKcard(newCard, pId);
+  }
   persist(); closeModal(); render();
+}
+
+function createTodoFromKcard(card, projectId){
+  if(!card.assignee || card.assignee === DB.currentUser) return;
+  const todoId = uid();
+  card.todoId = todoId;
+  DB.todos.push({
+    id: todoId,
+    title: card.title,
+    projectId: projectId,
+    assignee: card.assignee,
+    assignedBy: DB.currentUser,
+    date: card.due || '',
+    status: card.col === 'done' ? 'done' : 'pending',
+    note: card.note || '',
+    attachments: card.attachments || [],
+    kanbanCardId: card.id,
+  });
+  persist();
+}
+
+function syncKcardToTodo(card, projectId){
+  if(!card.todoId) return;
+  const todo = DB.todos.find(t=>t.id===card.todoId);
+  if(!todo) return;
+  todo.title = card.title;
+  todo.date = card.due || '';
+  todo.status = card.col === 'done' ? 'done' : 'pending';
+  todo.note = card.note || '';
+  todo.attachments = card.attachments || [];
+  if(card.assignee && card.assignee !== todo.assignee){
+    todo.assignee = card.assignee;
+    todo.assignedBy = DB.currentUser;
+  }
+  persist();
 }
 
 function deleteKcard(pId,dId,cardId){
   const p = DB.projects.find(x=>x.id===pId); const d = p.docs.find(x=>x.id===dId);
+  const card = d.cards.find(x=>x.id===cardId);
+  // 刪除對應的待辦任務
+  if(card && card.todoId){
+    DB.todos = DB.todos.filter(t=>t.id!==card.todoId);
+  }
   d.cards = d.cards.filter(x=>x.id!==cardId);
   persist(); closeModal(); render();
 }

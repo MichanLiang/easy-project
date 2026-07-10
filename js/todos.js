@@ -235,7 +235,7 @@ function viewTodos(){
   const me = DB.currentUser;
   const inbox = DB.todos.filter(t=>t.assignee===me && t.assignedBy && t.assignedBy!==me);
   const assigned = DB.todos.filter(t=>t.assignedBy===me && t.assignee && t.assignee!==me);
-  const mine = DB.todos.filter(t=>!(t.assignedBy && t.assignedBy!==me && t.assignee===me) && !(t.assignedBy===me && t.assignee && t.assignee!==me));
+  const mine = DB.todos.filter(t=>t.assignedBy===me && (!t.assignee || t.assignee===me));
   
   setTimeout(() => {
     initIcons();

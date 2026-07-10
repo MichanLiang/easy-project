@@ -1,22 +1,44 @@
 /* ================= MEETINGS ================= */
 function renderMeetingDoc(p,d){
+  // 建立與會人員選項（從專案成員）
+  const attendeesList = (d.attendees || '').split(',').map(s=>s.trim()).filter(Boolean);
+  const memberCheckboxes = DB.members
+    .filter(m => p.memberIds.includes(m.id))
+    .map(m => `<label class="chip ${attendeesList.includes(m.name)?'on':''}" onclick="this.classList.toggle('on');updateMeetingAttendees('${p.id}','${d.id}')" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:16px;font-size:13px;border:1px solid var(--line);margin:2px;">
+      <input type="checkbox" value="${escapeHTML(m.name)}" ${attendeesList.includes(m.name)?'checked':''} style="display:none;">
+      ${avatarHTML(m.id, 18)} ${escapeHTML(m.name)}
+    </label>`).join('');
+  
   return `
   <div class="card" style="padding:24px;max-width:720px;">
-    <div class="field-row">
-      <div class="field">
-        <label>日期</label>
-        <input type="date" value="${d.date||''}" oninput="updateMeetingField('${p.id}','${d.id}','date',this.value)">
+    <div class="field">
+      <label>日期</label>
+      <input type="date" value="${d.date||''}" oninput="updateMeetingField('${p.id}','${d.id}','date',this.value)">
+    </div>
+    <div class="field">
+      <label>出席人員</label>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">
+        ${memberCheckboxes || '<span style="color:var(--ink-faint);font-size:13px;">此專案還沒有成員</span>'}
       </div>
-      <div class="field">
-        <label>出席人員</label>
-        <input type="text" value="${escapeHTML(d.attendees||'')}" placeholder="例如：我、陳品心" oninput="updateMeetingField('${p.id}','${d.id}','attendees',this.value)">
-      </div>
+      <input type="hidden" id="meetingAttendees-${p.id}-${d.id}" value="${escapeHTML(d.attendees||'')}">
     </div>
     <div class="field">
       <label>會議內容</label>
       <textarea style="min-height:280px" placeholder="記錄會議重點、決議事項…" oninput="updateMeetingField('${p.id}','${d.id}','content',this.value)">${escapeHTML(d.content||'')}</textarea>
     </div>
   </div>`;
+}
+
+function updateMeetingAttendees(pId,dId){
+  const p=DB.projects.find(x=>x.id===pId); if(!p) return;
+  const d=p.docs.find(x=>x.id===dId); if(!d) return;
+  const checkboxes = document.querySelectorAll(`#meetingAttendees-${pId}-${dId} input[type=checkbox]`);
+  // 使用父容器中的 checkbox
+  const container = document.querySelector(`#meetingAttendees-${pId}-${dId}`).previousElementSibling;
+  if(!container) return;
+  const checked = Array.from(container.querySelectorAll('input[type=checkbox]:checked')).map(cb=>cb.value);
+  d.attendees = checked.join(', ');
+  persist();
 }
 
 function updateMeetingField(pId,dId,field,val){

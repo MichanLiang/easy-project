@@ -3,7 +3,6 @@ let chatUnsubscribe = null;
 
 function viewChat(){
   const user = auth.currentUser;
-  // 顯示所有非自己的成員（包含等待中的）
   const contacts = DB.members.filter(m => m.id !== user?.uid);
   
   if(!state.chatContact && contacts.length) {
@@ -40,6 +39,13 @@ function viewChat(){
       <div class="chat-msgs" id="chatMsgs">
         <div class="empty">選擇聯絡人開始對話</div>
       </div>
+      <div class="chat-reply-bar" id="chatReplyBar" style="display:none;padding:8px 14px;background:var(--bg-subtle);border-top:1px solid var(--line);font-size:13px;display:none;align-items:center;gap:8px;">
+        <span style="color:var(--accent);font-weight:600;">回覆：</span>
+        <span id="chatReplyText" style="flex:1;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+        <button class="btn-ghost btn-icon btn-sm" onclick="cancelReply()">
+          <span class="icon">${getIcon('x')}</span>
+        </button>
+      </div>
       <div class="chat-input">
         <input type="text" id="chatInputBox" placeholder="輸入訊息…" onkeydown="if(event.key==='Enter')sendChatMsg()">
         <button class="btn btn-primary" onclick="sendChatMsg()">
@@ -53,19 +59,51 @@ function viewChat(){
 
 function selectChatContact(id){
   state.chatContact = id;
+  state.replyTo = null;
   render();
 }
 
-// 取得聊天室 ID（確保兩人之間只有一個聊天室）
+let replyToMsg = null;
+
+function setReplyTo(msgId, msgText, senderName){
+  replyToMsg = {id: msgId, text: msgText, sender: senderName};
+  const bar = document.getElementById('chatReplyBar');
+  const textEl = document.getElementById('chatReplyText');
+  if(bar && textEl){
+    bar.style.display = 'flex';
+    textEl.textContent = msgText.slice(0, 60) + (msgText.length > 60 ? '…' : '');
+  }
+}
+
+function cancelReply(){
+  replyToMsg = null;
+  const bar = document.getElementById('chatReplyBar');
+  if(bar) bar.style.display = 'none';
+}
+
+function recallMessage(msgId){
+  if(!confirm('確定要收回這則訊息嗎？')) return;
+  const user = auth.currentUser;
+  if(!user || state.isGuest) return;
+  
+  const chatRoomId = getChatRoomId(user.uid, state.chatContact);
+  firebase.firestore()
+    .collection('chatRooms')
+    .doc(chatRoomId)
+    .collection('messages')
+    .doc(msgId)
+    .update({ recalled: true, text: '（訊息已收回）' })
+    .then(() => toast('已收回'))
+    .catch(e => console.error('收回訊息失敗:', e));
+}
+
 function getChatRoomId(userId1, userId2){
   return [userId1, userId2].sort().join('_');
 }
 
-// 載入聊天訊息
 function loadChatMessages(contactId){
   const user = auth.currentUser;
   if(!user || state.isGuest) {
-    // 訪客模式使用本地資料
     renderLocalMessages(contactId);
     return;
   }
@@ -74,10 +112,8 @@ function loadChatMessages(contactId){
   const chatMsgs = document.getElementById('chatMsgs');
   if(!chatMsgs) return;
   
-  // 取消之前的監聽
   if(chatUnsubscribe) chatUnsubscribe();
   
-  // 監聽 Firestore 訊息
   chatUnsubscribe = firebase.firestore()
     .collection('chatRooms')
     .doc(chatRoomId)
@@ -88,11 +124,21 @@ function loadChatMessages(contactId){
       snapshot.forEach(doc => messages.push({id: doc.id, ...doc.data()}));
       
       chatMsgs.innerHTML = messages.length 
-        ? messages.map(m => `
-          <div class="msg ${m.senderId === user.uid ? 'me' : ''}">
-            ${escapeHTML(m.text)}
-            <div class="t">${formatTime(m.createdAt)}</div>
-          </div>`).join('')
+        ? messages.map(m => {
+            const isMe = m.senderId === user.uid;
+            const isRecalled = m.recalled;
+            const replyHtml = m.replyTo ? `<div style="font-size:11px;color:var(--accent);margin-bottom:4px;padding:4px 8px;background:var(--accent-soft);border-radius:4px;border-left:3px solid var(--accent);">↩ ${escapeHTML(m.replyTo.sender)}：${escapeHTML(m.replyTo.text.slice(0,50))}${m.replyTo.text.length>50?'…':''}</div>` : '';
+            return `
+            <div class="msg ${isMe ? 'me' : ''}" style="${isRecalled?'opacity:0.5;font-style:italic;':''}">
+              ${replyHtml}
+              ${escapeHTML(m.text)}
+              <div class="t">
+                ${formatTime(m.createdAt)}
+                ${isMe && !isRecalled ? `<span style="cursor:pointer;margin-left:8px;opacity:0.6;" onclick="event.stopPropagation();recallMessage('${m.id}')" title="收回訊息">✕</span>` : ''}
+                ${!isMe && !isRecalled ? `<span style="cursor:pointer;margin-left:8px;opacity:0.6;" onclick="event.stopPropagation();setReplyTo('${m.id}','${escapeHTML(m.text).replace(/'/g,"\\'")}','${escapeHTML(m.senderName||'').replace(/'/g,"\\'")}')" title="回覆">↩</span>` : ''}
+              </div>
+            </div>`;
+          }).join('')
         : '<div class="empty">開始你們的對話吧</div>';
       
       chatMsgs.scrollTop = chatMsgs.scrollHeight;
@@ -102,16 +148,16 @@ function loadChatMessages(contactId){
     });
 }
 
-// 本地模式載入訊息
 function renderLocalMessages(contactId){
   const chatMsgs = document.getElementById('chatMsgs');
   if(!chatMsgs) return;
   
   const thread = DB.chats[contactId] || [];
   chatMsgs.innerHTML = thread.length
-    ? thread.map(m => `
+    ? thread.map((m,i) => `
       <div class="msg ${m.from === 'me' ? 'me' : ''}">
-        ${escapeHTML(m.text)}
+        ${m.replyTo ? `<div style="font-size:11px;color:var(--accent);margin-bottom:4px;padding:4px 8px;background:var(--accent-soft);border-radius:4px;border-left:3px solid var(--accent);">↩ ${escapeHTML(m.replyTo.sender)}：${escapeHTML(m.replyTo.text.slice(0,50))}${m.replyTo.text.length>50?'…':''}</div>` : ''}
+        ${m.recalled ? '<em>（訊息已收回）</em>' : escapeHTML(m.text)}
         <div class="t">${m.time}</div>
       </div>`).join('')
     : '<div class="empty">開始你們的對話吧</div>';
@@ -119,14 +165,12 @@ function renderLocalMessages(contactId){
   chatMsgs.scrollTop = chatMsgs.scrollHeight;
 }
 
-// 格式化時間
 function formatTime(timestamp){
   if(!timestamp) return '';
   const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
   return `${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`;
 }
 
-// 傳送訊息
 async function sendChatMsg(){
   const box = document.getElementById('chatInputBox');
   const text = box.value.trim();
@@ -135,24 +179,21 @@ async function sendChatMsg(){
   const user = auth.currentUser;
   const contact = DB.members.find(m => m.id === state.chatContact);
   
-  // 檢查對方是否已註冊
   if(contact && contact.status === 'pending'){
     toast('對方尚未接受邀請，無法傳送訊息');
     return;
   }
   
   if(!user || state.isGuest) {
-    // 訪客模式
     sendLocalMessage(text);
   } else {
-    // Firebase 模式
     await sendFirebaseMessage(text);
   }
   
   box.value = '';
+  cancelReply();
 }
 
-// 本地模式傳訊息
 function sendLocalMessage(text){
   const contactId = state.chatContact;
   if(!DB.chats[contactId]) DB.chats[contactId] = [];
@@ -160,18 +201,19 @@ function sendLocalMessage(text){
   const now = new Date();
   const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
   
-  DB.chats[contactId].push({from: 'me', text, time});
+  const msg = {from: 'me', text, time};
+  if(replyToMsg) msg.replyTo = {sender: '我', text: replyToMsg.text};
+  
+  DB.chats[contactId].push(msg);
   persist();
   renderLocalMessages(contactId);
 }
 
-// Firebase 模式傳訊息
 async function sendFirebaseMessage(text){
   const user = auth.currentUser;
   const chatRoomId = getChatRoomId(user.uid, state.chatContact);
   
   try {
-    // 確保聊天室存在
     const chatRoomRef = firebase.firestore().collection('chatRooms').doc(chatRoomId);
     const chatRoomDoc = await chatRoomRef.get();
     
@@ -184,15 +226,23 @@ async function sendFirebaseMessage(text){
       });
     }
     
-    // 添加訊息
-    await chatRoomRef.collection('messages').add({
+    const msgData = {
       senderId: user.uid,
       senderName: user.displayName || '使用者',
       text: text,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
+    };
     
-    // 更新聊天室最後訊息
+    if(replyToMsg){
+      msgData.replyTo = {
+        id: replyToMsg.id,
+        sender: replyToMsg.sender,
+        text: replyToMsg.text
+      };
+    }
+    
+    await chatRoomRef.collection('messages').add(msgData);
+    
     await chatRoomRef.update({
       lastMessage: text,
       lastMessageAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -209,7 +259,6 @@ function scrollChatBottom(){
   if(el) el.scrollTop = el.scrollHeight;
 }
 
-// 離開時取消監聽
 window.addEventListener('beforeunload', () => {
   if(chatUnsubscribe) chatUnsubscribe();
 });

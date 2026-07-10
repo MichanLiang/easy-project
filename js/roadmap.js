@@ -46,7 +46,7 @@ function updateRoadmapField(pId,dId,pi,field,val){
 
 function addRoadmapItem(pId,dId,pi){
   const p=DB.projects.find(x=>x.id===pId); const d=p.docs.find(x=>x.id===dId);
-  d.phases[pi].items.push('新項目'); persist(); render();
+  d.phases[pi].items.push(''); persist(); render();
 }
 
 function updateRoadmapItem(pId,dId,pi,ii,val){

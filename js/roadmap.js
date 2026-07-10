@@ -32,26 +32,30 @@ function addRoadmapPhase(pId,dId){
   const p=DB.projects.find(x=>x.id===pId); const d=p.docs.find(x=>x.id===dId);
   d.phases.push({id:uid(), title:'新階段', period:'', items:[]});
   persist(); render();
+  syncProjectAfterChange(pId);
 }
 
 function removeRoadmapPhase(pId,dId,pi){
   const p=DB.projects.find(x=>x.id===pId); const d=p.docs.find(x=>x.id===dId);
   d.phases.splice(pi,1);
-  syncProjectAfterChange(pId);
   persist(); render();
+  syncProjectAfterChange(pId);
 }
 
 function updateRoadmapField(pId,dId,pi,field,val){
   const p=DB.projects.find(x=>x.id===pId); const d=p.docs.find(x=>x.id===dId);
   d.phases[pi][field]=val.trim(); persist();
+  syncProjectAfterChange(pId);
 }
 
 function addRoadmapItem(pId,dId,pi){
   const p=DB.projects.find(x=>x.id===pId); const d=p.docs.find(x=>x.id===dId);
   d.phases[pi].items.push(''); persist(); render();
+  syncProjectAfterChange(pId);
 }
 
 function updateRoadmapItem(pId,dId,pi,ii,val){
   const p=DB.projects.find(x=>x.id===pId); const d=p.docs.find(x=>x.id===dId);
   d.phases[pi].items[ii]=val.trim(); persist();
+  syncProjectAfterChange(pId);
 }

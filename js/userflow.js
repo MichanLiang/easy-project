@@ -82,7 +82,7 @@ function initUserflowBoard(d){
       if(e.shiftKey){
         if(ufState.connectFrom && ufState.connectFrom!==id){
           const proj = DB.projects.find(x=>x.id===pid); const doc = proj.docs.find(x=>x.id===did);
-          doc.edges.push({from:ufState.connectFrom, to:id}); persist(); ufState.connectFrom=null; render();
+          doc.edges.push({from:ufState.connectFrom, to:id}); persist(); syncProjectAfterChange(pid); ufState.connectFrom=null; render();
         } else { ufState.connectFrom = id; toast('已選取起點，按住 Shift 點擊另一個節點以連線'); }
         return;
       }
@@ -112,7 +112,7 @@ function initUserflowBoard(d){
     }
   };
   canvas.onmouseup = ()=>{
-    if(ufState.drag) persist();
+    if(ufState.drag) { persist(); syncProjectAfterChange(ufState.pid); }
     ufState.drag=null; ufState.dragType=null;
   };
   canvas.onmouseleave = ()=>{ };
@@ -173,11 +173,12 @@ function addUFNode(pId,dId,shape){
   const def = defaults[shape] || defaults.rect;
   d.nodes.push({id:uid(), shape, x:80+Math.random()*300, y:80+Math.random()*200, w:def.w, h:def.h, text:def.text});
   persist(); render();
+  syncProjectAfterChange(pId);
 }
 
 function updateUFNodeText(id,text){
   for(const p of DB.projects) for(const d of p.docs) if(d.type==='userflow'){
-    const n = d.nodes.find(x=>x.id===id); if(n){ n.text=text.trim(); persist(); return; }
+    const n = d.nodes.find(x=>x.id===id); if(n){ n.text=text.trim(); persist(); syncProjectAfterChange(p.id); return; }
   }
 }
 

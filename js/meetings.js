@@ -56,6 +56,7 @@ function updateMeetingField(pId,dId,field,val){
   if(!d) return;
   d[field]=val; 
   persist();
+  syncProjectAfterChange(pId);
 }
 
 function viewMeetingsGlobal(){

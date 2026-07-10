@@ -268,13 +268,14 @@ function createDoc(projectId, type){
   if(type==='meeting') Object.assign(base,{date:todayStr(),attendees:'',content:''});
   p.docs.push(base);
   persist(); closeModal();
+  syncProjectAfterChange(projectId);
   go('project',{projectId, docId: base.id});
 }
 
 function renameDoc(pId, dId){
   const p = DB.projects.find(x=>x.id===pId); const d = p.docs.find(x=>x.id===dId);
   const nn = prompt('重新命名', d.name);
-  if(nn && nn.trim()){ d.name = nn.trim(); persist(); render(); }
+  if(nn && nn.trim()){ d.name = nn.trim(); persist(); syncProjectAfterChange(pId); render(); }
 }
 
 function deleteDoc(pId,dId){
@@ -333,6 +334,7 @@ function renderPlainDoc(p,d){
 function updatePlainDoc(pId,dId,val){
   const p=DB.projects.find(x=>x.id===pId); const d=p.docs.find(x=>x.id===dId);
   d.content = val; persist();
+  syncProjectAfterChange(pId);
 }
 
 // 同步專案到所有成員的 Firestore

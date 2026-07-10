@@ -118,7 +118,7 @@ function setWFColor(color){
       if(el.shape==='button'){ el.btnColor = color; }
       else if(el.shape==='hline'||el.shape==='wline'){ el.lineColor = color; }
       else { el.color = color; }
-      persist(); render(); return;
+      persist(); syncProjectAfterChange(p.id); render(); return;
     }
   }
 }
@@ -138,6 +138,7 @@ function pasteWFElement(pId,dId){
   d.elements.push(newEl);
   wfSelected = newEl.id;
   persist(); render();
+  syncProjectAfterChange(pId);
 }
 
 function initWireframeBoard(d){
@@ -231,12 +232,12 @@ function initWireframeBoard(d){
   };
   
   canvas.onmouseup = ()=>{
-    if(wfState && wfState.mode) persist();
+    if(wfState && wfState.mode) { persist(); syncProjectAfterChange(canvas.dataset.pid); }
     if(wfState) wfState.mode = null;
   };
   
   canvas.onmouseleave = ()=>{
-    if(wfState && wfState.mode) persist();
+    if(wfState && wfState.mode) { persist(); syncProjectAfterChange(canvas.dataset.pid); }
     if(wfState) wfState.mode = null;
   };
 }
@@ -276,11 +277,12 @@ function addWFElement(pId,dId,shape){
   const def = defaults[shape];
   d.elements.push({id:uid(), shape, x:60+Math.random()*300, y:60+Math.random()*200, w:def.w, h:def.h, text:def.text, color:'#F8F9FC', rotation:0, cp1y:def.h*0.2, cp2y:def.h*0.8});
   persist(); render();
+  syncProjectAfterChange(pId);
 }
 
 function updateWFText(id,text){
   for(const p of DB.projects) for(const d of p.docs) if(d.type==='wireframe'){
-    const el = d.elements.find(x=>x.id===id); if(el){ el.text=text.trim(); persist(); return; }
+    const el = d.elements.find(x=>x.id===id); if(el){ el.text=text.trim(); persist(); syncProjectAfterChange(p.id); return; }
   }
 }
 

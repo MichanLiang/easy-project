@@ -82,20 +82,24 @@ function exportPRD(pId,dId){
 function updatePrdField(pId,dId,field,val){
   const p=DB.projects.find(x=>x.id===pId); const d=p.docs.find(x=>x.id===dId);
   d[field]=val; persist();
+  syncProjectAfterChange(pId);
 }
 
 function updatePrdFeature(pId,dId,idx,val){
   const p=DB.projects.find(x=>x.id===pId); const d=p.docs.find(x=>x.id===dId);
   d.features[idx]=val; persist();
+  syncProjectAfterChange(pId);
 }
 
 function addPrdFeature(pId,dId){
   const p=DB.projects.find(x=>x.id===pId); const d=p.docs.find(x=>x.id===dId);
   d.features.push(''); persist(); render();
+  syncProjectAfterChange(pId);
 }
 
 function removePrdFeature(pId,dId,idx){
   const p=DB.projects.find(x=>x.id===pId); const d=p.docs.find(x=>x.id===dId);
   d.features.splice(idx,1); if(d.features.length===0) d.features.push('');
   persist(); render();
+  syncProjectAfterChange(pId);
 }

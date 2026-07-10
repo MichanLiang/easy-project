@@ -171,4 +171,5 @@ function convertBacklogToTask(id){
   DB.dismissedBacklogs.push(id);
   DB.backlogItems = DB.backlogItems.filter(x=>x.id!==id);
   persist(); toast('已轉為看板任務'); render();
+  syncProjectAfterChange(i.projectId);
 }

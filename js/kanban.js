@@ -62,7 +62,7 @@ function initKanbanDnD(){
       if(!dragId) return;
       const p = DB.projects.find(x=>x.id===pid); const d = p.docs.find(x=>x.id===did);
       const card = d.cards.find(x=>x.id===dragId);
-      if(card){ card.col = zone.dataset.col; persist(); render(); }
+      if(card){ card.col = zone.dataset.col; persist(); render(); syncProjectAfterChange(pid); }
     });
   });
 }
@@ -149,6 +149,7 @@ function saveKcard(pId,dId,cardId){
     createTodoFromKcard(newCard, pId);
   }
   persist(); closeModal(); render();
+  syncProjectAfterChange(pId);
 }
 
 function createTodoFromKcard(card, projectId){

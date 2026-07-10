@@ -121,6 +121,7 @@ function saveGanttTask(pId,dId,taskId){
   if(taskId){ Object.assign(d.tasks.find(x=>x.id===taskId), payload); }
   else { d.tasks.push({id:uid(), ...payload}); }
   persist(); closeModal(); render();
+  syncProjectAfterChange(pId);
 }
 
 function deleteGanttTask(pId,dId,taskId){

@@ -20,7 +20,13 @@ function renderGantt(p,d){
   const dayWidth = Math.max(24, Math.min(46, Math.floor(900/totalDays)));
   const days = [];
   for(let i=0;i<totalDays;i++){ const dt=new Date(minD); dt.setDate(dt.getDate()+i); days.push(dt); }
-  const nameCellW = 150;
+  const nameW = 150;
+  
+  const rows = d.tasks.map(t=>{
+    const startOffset = Math.round((new Date(t.start)-minD)/86400000);
+    const span = Math.max(1, Math.round((new Date(t.end)-new Date(t.start))/86400000));
+    return {task:t, startOffset, span};
+  });
   
   return `
   <div style="margin-bottom:14px;">
@@ -29,28 +35,41 @@ function renderGantt(p,d){
       新增任務
     </button>
   </div>
-  <div class="gantt-wrap">
-    <table class="gantt" style="min-width:${nameCellW+totalDays*dayWidth}px">
-      <thead>
-        <tr>
-          <th style="min-width:${nameCellW}px;position:sticky;left:0;background:var(--bg-page);z-index:3;border-right:1px solid var(--line-light);">任務</th>
-          ${days.map(dt=>`<th style="width:${dayWidth}px">${dt.getMonth()+1}/${dt.getDate()}</th>`).join('')}
-        </tr>
-      </thead>
-      <tbody>
-        ${d.tasks.map(t=>{
-          const startOffset = Math.round((new Date(t.start)-minD)/86400000);
-          const span = Math.max(1, Math.round((new Date(t.end)-new Date(t.start))/86400000));
-          return `<tr onclick="openGanttTaskModal('${p.id}','${d.id}','${t.id}')" style="cursor:pointer;">
-            <td class="namecell" style="vertical-align:middle;background:var(--bg-page);">${escapeHTML(t.title)}</td>
-            <td style="position:relative;padding:0;height:36px;background:var(--bg-page);border-bottom:1px solid var(--line-light);">
-              <div class="gantt-bar" style="position:absolute;top:8px;left:${nameCellW+startOffset*dayWidth}px;width:${span*dayWidth-4}px;height:20px;background:${t.color||'#C4A882'};border-radius:6px;opacity:0.9;"></div>
+  <div class="gantt-split" data-gid="${p.id}-${d.id}">
+    <!-- 左側：任務名稱（固定） -->
+    <div class="gantt-left" style="width:${nameW}px;flex-shrink:0;">
+      <table class="gantt gantt-left-table" style="width:${nameW}px;">
+        <thead><tr><th style="width:${nameW}px;">任務</th></tr></thead>
+        <tbody>
+          ${rows.map(r=>`<tr data-tid="${r.task.id}" onclick="openGanttTaskModal('${p.id}','${d.id}','${r.task.id}')" style="cursor:pointer;">
+            <td class="namecell" style="width:${nameW}px;">${escapeHTML(r.task.title)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    <!-- 右側：日期 + bar（水平捲動） -->
+    <div class="gantt-right" onscroll="syncGanttScroll(this)">
+      <table class="gantt gantt-right-table" style="min-width:${totalDays*dayWidth}px;">
+        <thead><tr>
+          ${days.map(dt=>`<th style="width:${dayWidth}px;">${dt.getMonth()+1}/${dt.getDate()}</th>`).join('')}
+        </tr></thead>
+        <tbody>
+          ${rows.map(r=>`<tr data-tid="${r.task.id}" onclick="openGanttTaskModal('${p.id}','${d.id}','${r.task.id}')" style="cursor:pointer;">
+            <td style="position:relative;padding:0;height:36px;border-bottom:1px solid var(--line-light);background:var(--bg-page);">
+              <div class="gantt-bar" style="position:absolute;top:8px;left:${r.startOffset*dayWidth}px;width:${r.span*dayWidth-4}px;height:20px;background:${r.task.color||'#C4A882'};border-radius:6px;opacity:0.9;"></div>
             </td>
-          </tr>`;
-        }).join('')}
-      </tbody>
-    </table>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
   </div>`;
+}
+
+function syncGanttScroll(el){
+  const split = el.closest('.gantt-split');
+  if(!split) return;
+  const left = split.querySelector('.gantt-left');
+  if(left) left.scrollTop = el.scrollTop;
 }
 
 const GANTT_COLORS = ['#C4A4A4','#9AABB8','#A8B5A0','#B8A9C9','#C9B896','#C4A882'];

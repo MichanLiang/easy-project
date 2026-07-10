@@ -140,8 +140,28 @@ function saveProjectSettings(id){
 
 function deleteProject(id){
   if(!confirm('確定要刪除此專案嗎？此動作無法復原。')) return;
+  const project = DB.projects.find(p=>p.id===id);
   DB.projects = DB.projects.filter(p=>p.id!==id);
   persist(); closeModal(); go('projects');
+  // 同步刪除到所有成員的 Firestore
+  if(project) removeProjectFromMembers(project);
+}
+
+// 從所有成員的 Firestore 移除專案
+async function removeProjectFromMembers(project){
+  const user = auth.currentUser;
+  if(!user || state.isGuest) return;
+  for(const memberId of (project.memberIds||[])){
+    if(memberId === user.uid) continue;
+    try {
+      const memberRef = firebase.firestore().collection('users').doc(memberId);
+      const memberDoc = await memberRef.get();
+      if(memberDoc.exists){
+        const projects = (memberDoc.data().projects||[]).filter(p=>p.id!==project.id);
+        await memberRef.update({ projects });
+      }
+    } catch(e){ /* 可能無權限 */ }
+  }
 }
 
 /* ================= PROJECT DETAIL VIEW ================= */

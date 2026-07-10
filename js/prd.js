@@ -1,6 +1,12 @@
 /* ================= PRD ================= */
 function renderPRD(p,d){
   return `
+  <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+    <button class="btn btn-sm" onclick="exportPRD('${p.id}','${d.id}')">
+      <span class="icon">${getIcon('download')}</span>
+      匯出文件
+    </button>
+  </div>
   <div class="card" style="padding:28px;max-width:780px;">
     <div class="prd-block">
       <div class="lab">
@@ -44,6 +50,33 @@ function renderPRD(p,d){
       </button>
     </div>
   </div>`;
+}
+
+function exportPRD(pId,dId){
+  const p=DB.projects.find(x=>x.id===pId); const d=p.docs.find(x=>x.id===dId);
+  if(!p||!d) return;
+  
+  let content = `【${p.name}】產品需求文件 (PRD)\n`;
+  content += `${'='.repeat(50)}\n\n`;
+  content += `一、目標\n${d.goal || '（未填寫）'}\n\n`;
+  content += `二、背景\n${d.background || '（未填寫）'}\n\n`;
+  content += `三、價值\n${d.value || '（未填寫）'}\n\n`;
+  content += `四、功能清單\n`;
+  d.features.forEach((f,i)=>{
+    if(f.trim()) content += `  ${i+1}. ${f}\n`;
+  });
+  content += `\n${'='.repeat(50)}\n`;
+  content += `文件類型：PRD\n`;
+  content += `匯出日期：${new Date().toLocaleDateString('zh-TW')}\n`;
+  content += `建立者：${p.name} 團隊\n`;
+  
+  const blob = new Blob([content], {type:'text/plain;charset=utf-8'});
+  const link = document.createElement('a');
+  link.download = `${p.name}_PRD.txt`;
+  link.href = URL.createObjectURL(blob);
+  link.click();
+  URL.revokeObjectURL(link.href);
+  toast('已匯出文件');
 }
 
 function updatePrdField(pId,dId,field,val){

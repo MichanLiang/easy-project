@@ -4,10 +4,12 @@ function renderMeetingDoc(p,d){
   const attendeesList = (d.attendees || '').split(',').map(s=>s.trim()).filter(Boolean);
   const memberCheckboxes = DB.members
     .filter(m => p.memberIds.includes(m.id))
-    .map(m => `<label class="chip ${attendeesList.includes(m.name)?'on':''}" onclick="this.classList.toggle('on');updateMeetingAttendees('${p.id}','${d.id}')" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:16px;font-size:13px;border:1px solid var(--line);margin:2px;">
-      <input type="checkbox" value="${escapeHTML(m.name)}" ${attendeesList.includes(m.name)?'checked':''} style="display:none;">
+    .map(m => {
+      const isChecked = attendeesList.includes(m.name);
+      return `<label class="attendee-chip ${isChecked?'on':''}" data-name="${escapeHTML(m.name)}" onclick="toggleMeetingAttendee(this,'${p.id}','${d.id}')" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:16px;font-size:13px;border:2px solid ${isChecked?'var(--accent)':'var(--line)'};margin:2px;background:${isChecked?'var(--accent-soft)':'transparent'};transition:all 0.15s;">
       ${avatarHTML(m.id, 18)} ${escapeHTML(m.name)}
-    </label>`).join('');
+    </label>`;
+    }).join('');
   
   return `
   <div class="card" style="padding:24px;max-width:720px;">
@@ -17,10 +19,9 @@ function renderMeetingDoc(p,d){
     </div>
     <div class="field">
       <label>出席人員</label>
-      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">
+      <div id="attendeeList-${p.id}-${d.id}" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">
         ${memberCheckboxes || '<span style="color:var(--ink-faint);font-size:13px;">此專案還沒有成員</span>'}
       </div>
-      <input type="hidden" id="meetingAttendees-${p.id}-${d.id}" value="${escapeHTML(d.attendees||'')}">
     </div>
     <div class="field">
       <label>會議內容</label>
@@ -29,14 +30,21 @@ function renderMeetingDoc(p,d){
   </div>`;
 }
 
-function updateMeetingAttendees(pId,dId){
+function toggleMeetingAttendee(el, pId, dId){
   const p=DB.projects.find(x=>x.id===pId); if(!p) return;
   const d=p.docs.find(x=>x.id===dId); if(!d) return;
-  const checkboxes = document.querySelectorAll(`#meetingAttendees-${pId}-${dId} input[type=checkbox]`);
-  // 使用父容器中的 checkbox
-  const container = document.querySelector(`#meetingAttendees-${pId}-${dId}`).previousElementSibling;
-  if(!container) return;
-  const checked = Array.from(container.querySelectorAll('input[type=checkbox]:checked')).map(cb=>cb.value);
+  
+  el.classList.toggle('on');
+  const isOn = el.classList.contains('on');
+  const name = el.dataset.name;
+  
+  // 更新樣式
+  el.style.border = `2px solid ${isOn ? 'var(--accent)' : 'var(--line)'}`;
+  el.style.background = isOn ? 'var(--accent-soft)' : 'transparent';
+  
+  // 收集所有已選取的人員
+  const container = document.getElementById(`attendeeList-${pId}-${dId}`);
+  const checked = Array.from(container.querySelectorAll('.attendee-chip.on')).map(chip=>chip.dataset.name);
   d.attendees = checked.join(', ');
   persist();
 }

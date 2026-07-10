@@ -37,28 +37,27 @@ function renderUserflow(p,d){
 }
 
 function renderUFNode(n){
-  let shapeStyle = '';
-  let extraClass = n.shape;
+  let innerStyle = '';
+  let shapeClass = n.shape;
   
   if(n.shape==='ellipse'){
-    shapeStyle = 'border-radius:50%;';
+    innerStyle = 'border-radius:50%;';
   } else if(n.shape==='diamond'){
-    shapeStyle = 'clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%);border-radius:0;';
+    innerStyle = 'clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%);background:var(--accent-light) !important;border-color:var(--accent) !important;';
   } else if(n.shape==='subprocess'){
-    shapeStyle = 'border-left:4px solid var(--accent);';
+    innerStyle = 'border-left:4px solid var(--accent);';
   } else if(n.shape==='document'){
-    shapeStyle = 'border-bottom:3px wavy var(--ink-muted);';
+    innerStyle = 'border-bottom:3px wavy var(--ink-muted);';
   } else if(n.shape==='annotation'){
-    shapeStyle = 'border:1px dashed var(--amber);background:var(--amber-soft) !important;';
+    innerStyle = 'border:1px dashed var(--amber);background:var(--amber-soft) !important;';
   }
   
   return `
-  <div class="node ${extraClass}" id="node-${n.id}" data-id="${n.id}" style="left:${n.x}px;top:${n.y}px;width:${n.w}px;height:${n.h}px;${shapeStyle}">
+  <div class="node ${shapeClass}" id="node-${n.id}" data-id="${n.id}" style="left:${n.x}px;top:${n.y}px;width:${n.w}px;height:${n.h}px;${innerStyle}">
     <div class="txt" contenteditable="true" style="width:100%;outline:none;" onblur="updateUFNodeText('${n.id}',this.textContent)" onmousedown="event.stopPropagation()">${escapeHTML(n.text)}</div>
-    <div class="del" onmousedown="event.stopPropagation()" onclick="deleteUFNode('${n.id}')">
-      <span class="icon" style="width:10px;height:10px;">${getIcon('x')}</span>
-    </div>
-    <div class="resize" onmousedown="event.stopPropagation();startUFResize(event,'${n.id}')"></div>
+  </div>
+  <div class="uf-del" id="ufdel-${n.id}" data-id="${n.id}" style="left:${n.x + n.w - 9}px;top:${n.y - 9}px;" onmousedown="event.stopPropagation()" onclick="deleteUFNode('${n.id}')">
+    <span class="icon" style="width:10px;height:10px;">${getIcon('x')}</span>
   </div>`;
 }
 
@@ -68,8 +67,10 @@ function initUserflowBoard(d){
   const canvas = document.getElementById('ufCanvas');
   if(!canvas) return;
   const pid = canvas.dataset.pid, did = canvas.dataset.did;
-  ufState = {pid, did, connectFrom:null, drag:null, resize:null};
+  ufState = {pid, did, connectFrom:null, drag:null, resize:null, dragType:null};
   drawUFEdges(d);
+  
+  // 節點拖曳
   canvas.querySelectorAll('.node').forEach(nodeEl=>{
     nodeEl.addEventListener('mousedown', (e)=>{
       if(e.target.closest('.del')||e.target.closest('.resize')) return;
@@ -83,39 +84,34 @@ function initUserflowBoard(d){
       }
       const rect = canvas.getBoundingClientRect();
       ufState.drag = {id, offX: e.clientX - rect.left - nodeEl.offsetLeft, offY: e.clientY - rect.top - nodeEl.offsetTop};
+      ufState.dragType = 'node';
     });
   });
+  
+  // 刪除按鈕
+  canvas.querySelectorAll('.uf-del').forEach(delEl=>{
+    delEl.addEventListener('mousedown', (e)=>e.stopPropagation());
+  });
+  
   canvas.onmousemove = (e)=>{
-    if(ufState.drag){
+    if(ufState.drag && ufState.dragType==='node'){
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left - ufState.drag.offX;
       const y = e.clientY - rect.top - ufState.drag.offY;
       const el = document.getElementById('node-'+ufState.drag.id);
+      const del = document.getElementById('ufdel-'+ufState.drag.id);
       el.style.left = Math.max(0,x)+'px'; el.style.top = Math.max(0,y)+'px';
+      if(del){ del.style.left = Math.max(0,x)+'px'; del.style.top = Math.max(0,y-9)+'px'; }
       const proj = DB.projects.find(x=>x.id===pid); const doc = proj.docs.find(x=>x.id===did);
       const n = doc.nodes.find(nn=>nn.id===ufState.drag.id); n.x=Math.max(0,x); n.y=Math.max(0,y);
       drawUFEdges(doc);
     }
-    if(ufState.resize){
-      const el = document.getElementById('node-'+ufState.resize.id);
-      const w = Math.max(70, ufState.resize.startW + (e.clientX - ufState.resize.startX));
-      const h = Math.max(44, ufState.resize.startH + (e.clientY - ufState.resize.startY));
-      el.style.width=w+'px'; el.style.height=h+'px';
-      const proj = DB.projects.find(x=>x.id===pid); const doc = proj.docs.find(x=>x.id===did);
-      const n = doc.nodes.find(nn=>nn.id===ufState.resize.id); n.w=w; n.h=h;
-      drawUFEdges(doc);
-    }
   };
   canvas.onmouseup = ()=>{
-    if(ufState.drag||ufState.resize) persist();
-    ufState.drag=null; ufState.resize=null;
+    if(ufState.drag) persist();
+    ufState.drag=null; ufState.dragType=null;
   };
   canvas.onmouseleave = ()=>{ };
-}
-
-function startUFResize(e,id){
-  const el = document.getElementById('node-'+id);
-  ufState.resize = {id, startX:e.clientX, startY:e.clientY, startW:el.offsetWidth, startH:el.offsetHeight};
 }
 
 function drawUFEdges(d){
@@ -135,7 +131,7 @@ function addUFNode(pId,dId,shape){
   const defaults = {
     rect:{w:120,h:56,text:'步驟'},
     ellipse:{w:120,h:60,text:'開始'},
-    diamond:{w:130,h:80,text:'條件？'},
+    diamond:{w:140,h:90,text:'條件？'},
     subprocess:{w:140,h:60,text:'子流程'},
     document:{w:130,h:70,text:'文件內容'},
     annotation:{w:140,h:60,text:'註解文字'},

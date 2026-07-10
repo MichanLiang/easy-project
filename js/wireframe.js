@@ -5,9 +5,13 @@ const WF_SHAPES = [
   {shape:'circle', label:'圓形', icon:'circle'},
   {shape:'button', label:'按鈕', icon:'zap'},
   {shape:'text', label:'文字', icon:'fileText'},
+  {shape:'hline', label:'直線', icon:'minus'},
+  {shape:'wline', label:'曲線', icon:'activity'},
 ];
 
-const WF_COLORS = ['#F8F9FC','#C4A4A4','#9AABB8','#A8B5A0','#B8A9C9','#C9B896','#C4A882','#D4C5B9'];
+const WF_COLORS = ['#F8F9FC','#FFFFFF','#E0E0E0','#BDBDBD','#9E9E9E','#757575','#424242','#212121','#000000','#C4A4A4','#9AABB8','#A8B5A0','#B8A9C9','#C9B896','#C4A882','#D4C5B9'];
+
+const WF_BTN_COLORS = ['#C4A4A4','#9AABB8','#A8B5A0','#B8A9C9','#C9B896','#C4A882'];
 
 function renderWireframe(p,d){
   return `
@@ -34,9 +38,9 @@ function renderWireframe(p,d){
       分享
     </button>
   </div>
-  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-    <span style="font-size:12px;color:var(--ink-faint);">選取顏色：</span>
-    ${WF_COLORS.map(c=>`<div onclick="setWFColor('${c}')" style="width:24px;height:24px;border-radius:50%;background:${c};cursor:pointer;border:2px solid var(--line);transition:all 0.15s;" onmouseenter="this.style.transform='scale(1.2)'" onmouseleave="this.style.transform='scale(1)'"></div>`).join('')}
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+    <span style="font-size:12px;color:var(--ink-faint);">背景色：</span>
+    ${WF_COLORS.map(c=>`<div onclick="setWFColor('${c}')" style="width:20px;height:20px;border-radius:4px;background:${c};cursor:pointer;border:1px solid var(--line);transition:all 0.15s;" onmouseenter="this.style.transform='scale(1.2)'" onmouseleave="this.style.transform='scale(1)'"></div>`).join('')}
   </div>
   <div class="board-wrap" style="height:520px;">
     <div class="board-canvas" id="wfCanvas" data-pid="${p.id}" data-did="${d.id}" style="width:1100px;height:900px;background:#fff;">
@@ -47,14 +51,32 @@ function renderWireframe(p,d){
 
 function wfShapeStyle(el){
   const bgColor = el.color || '#F8F9FC';
+  if(el.shape==='hline') return `background:transparent;border:none;border-top:3px solid ${el.lineColor||'#424242'};height:0;`;
+  if(el.shape==='wline') return `background:transparent;border:none;height:0;`;
   const base = `background:${bgColor};border:2px solid var(--ink-muted);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--ink-soft);font-weight:600;`;
   if(el.shape==='circle') return base+'border-radius:50%;';
-  if(el.shape==='button') return base+'border-radius:24px;background:linear-gradient(135deg,var(--accent) 0%,var(--accent-light) 100%);color:#fff;border-color:transparent;font-weight:700;box-shadow:0 2px 8px var(--accent-glow);';
+  if(el.shape==='button'){
+    const btnColor = el.btnColor || '#C4A4A4';
+    return `border-radius:24px;background:${btnColor};color:#fff;border:2px solid ${btnColor};font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.15);display:flex;align-items:center;justify-content:center;font-size:13px;`;
+  }
   if(el.shape==='text') return 'border:1px dashed var(--ink-muted);display:flex;align-items:center;padding-left:8px;font-size:14px;color:var(--ink-soft);';
   return base+'border-radius:var(--radius);';
 }
 
 function renderWFElement(el){
+  if(el.shape==='hline'){
+    return `<div class="wf-el" id="wfel-${el.id}" data-id="${el.id}" style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:3px;${wfShapeStyle(el)}" onclick="event.stopPropagation();selectWFElement('${el.id}')">
+      <div class="del" onmousedown="event.stopPropagation()" onclick="deleteWFElement('${el.id}')"><span class="icon" style="width:10px;height:10px;">${getIcon('x')}</span></div>
+      <div class="resize" onmousedown="event.stopPropagation();startWFResize(event,'${el.id}')"></div>
+    </div>`;
+  }
+  if(el.shape==='wline'){
+    return `<div class="wf-el" id="wfel-${el.id}" data-id="${el.id}" style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:none;background:transparent;" onclick="event.stopPropagation();selectWFElement('${el.id}')">
+      <svg width="100%" height="100%" style="overflow:visible;"><path d="M0,${el.h/2} C${el.w/4},0 ${el.w*3/4},${el.h} ${el.w},${el.h/2}" fill="none" stroke="${el.lineColor||'#424242'}" stroke-width="3"/></svg>
+      <div class="del" onmousedown="event.stopPropagation()" onclick="deleteWFElement('${el.id}')"><span class="icon" style="width:10px;height:10px;">${getIcon('x')}</span></div>
+      <div class="resize" onmousedown="event.stopPropagation();startWFResize(event,'${el.id}')"></div>
+    </div>`;
+  }
   return `
   <div class="wf-el ${wfSelected===el.id?'wf-selected':''}" id="wfel-${el.id}" data-id="${el.id}" style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;${wfShapeStyle(el)}" onclick="event.stopPropagation();selectWFElement('${el.id}')">
     <span contenteditable="true" onmousedown="event.stopPropagation()" onblur="updateWFText('${el.id}',this.textContent)" style="outline:none;width:100%;text-align:center;">${escapeHTML(el.text||'')}</span>
@@ -78,7 +100,12 @@ function setWFColor(color){
   if(!wfSelected) { toast('請先點選一個元素'); return; }
   for(const p of DB.projects) for(const d of p.docs) if(d.type==='wireframe'){
     const el = d.elements.find(x=>x.id===wfSelected);
-    if(el){ el.color = color; persist(); render(); return; }
+    if(el){
+      if(el.shape==='button'){ el.btnColor = color; }
+      else if(el.shape==='hline'||el.shape==='wline'){ el.lineColor = color; }
+      else { el.color = color; }
+      persist(); render(); return;
+    }
   }
 }
 
@@ -141,7 +168,7 @@ function startWFResize(e,id){
 
 function addWFElement(pId,dId,shape){
   const p=DB.projects.find(x=>x.id===pId); const d=p.docs.find(x=>x.id===dId);
-  const defaults = {rect:{w:160,h:100,text:'區塊'}, square:{w:100,h:100,text:'方塊'}, circle:{w:90,h:90,text:'圖示'}, button:{w:120,h:40,text:'按鈕文字'}, text:{w:150,h:26,text:'文字內容'}};
+  const defaults = {rect:{w:160,h:100,text:'區塊'}, square:{w:100,h:100,text:'方塊'}, circle:{w:90,h:90,text:'圖示'}, button:{w:120,h:40,text:'按鈕文字'}, text:{w:150,h:26,text:'文字內容'}, hline:{w:200,h:4,text:''}, wline:{w:200,h:60,text:''}};
   const def = defaults[shape];
   d.elements.push({id:uid(), shape, x:60+Math.random()*300, y:60+Math.random()*200, w:def.w, h:def.h, text:def.text, color:'#F8F9FC'});
   persist(); render();

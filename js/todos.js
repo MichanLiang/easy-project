@@ -1,5 +1,13 @@
 /* ================= TODOS (global + per-project) ================= */
 const STATUS_LABEL = {pending:'待處理', doing:'進行中', testing:'測試中', done:'已完成'};
+const TODO_COLORS = [
+  {color:'#C4A4A4', name:'工作'},
+  {color:'#9AABB8', name:'專案'},
+  {color:'#A8B5A0', name:'個人'},
+  {color:'#B8A9C9', name:'學習'},
+  {color:'#C9B896', name:'會議'},
+  {color:'#C4A882', name:'緊急'},
+];
 
 // Firestore 同步任務
 async function syncTodosToFirestore(){
@@ -103,9 +111,10 @@ function renderTodoRow(t){
   const overdue = t.date && t.date < todayStr() && t.status!=='done';
   const assignee = memberById(t.assignee);
   const assignedBy = t.assignedBy ? memberById(t.assignedBy) : null;
+  const colorTag = t.colorTag ? TODO_COLORS.find(c=>c.color===t.colorTag) : null;
   
   return `
-  <div class="todo-row">
+  <div class="todo-row" ${t.colorTag?`style="border-left:4px solid ${t.colorTag}"`:''}>
     <div class="todo-check ${t.status==='done'?'done':''}" onclick="toggleTodoDone('${t.id}')">
       ${t.status==='done' ? `<span class="icon" style="width:12px;height:12px;color:#fff;">${getIcon('check')}</span>` : ''}
     </div>
@@ -117,6 +126,9 @@ function renderTodoRow(t){
           ${t.date}
         </span>`:''}
         <span class="tag ${t.status}">${STATUS_LABEL[t.status]}</span>
+        ${colorTag?`<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;font-size:11px;background:${t.colorTag}22;color:${t.colorTag};font-weight:600;">
+          ${escapeHTML(colorTag.name)}
+        </span>`:''}
         ${assignee?`<span style="display:flex;align-items:center;gap:4px;">
           ${avatarHTML(t.assignee, 16)}
           ${escapeHTML(assignee.name)}
@@ -177,6 +189,16 @@ async function syncTaskToAssigner(task){
   if(!user || state.isGuest) return;
   
   try {
+    // 更新指派人 Firestore 子集合中的任務狀態
+    const todosRef = firebase.firestore().collection('users').doc(task.assignedBy).collection('todos');
+    const docRef = todosRef.doc(task.id);
+    const doc = await docRef.get();
+    
+    if(doc.exists){
+      await docRef.update({ status: task.status });
+    }
+    
+    // 同時更新指派人主文檔的 todos 陣列（如果存在的話）
     const assignerRef = firebase.firestore().collection('users').doc(task.assignedBy);
     const assignerDoc = await assignerRef.get();
     
@@ -283,7 +305,7 @@ function renderProjectTodo(p,d){
 }
 
 function openTodoModal(todoId, presetProjectId){
-  const t = todoId ? DB.todos.find(x=>x.id===todoId) : {id:null,title:'',date:'',status:'pending',note:'',assignee:DB.currentUser,assignedBy:DB.currentUser,projectId:presetProjectId||null,attachments:[]};
+  const t = todoId ? DB.todos.find(x=>x.id===todoId) : {id:null,title:'',date:'',status:'pending',note:'',assignee:DB.currentUser,assignedBy:DB.currentUser,projectId:presetProjectId||null,attachments:[],colorTag:''};
   const projOptions = `<option value="">（個人，不屬於任何專案）</option>` + DB.projects.map(p=>`<option value="${p.id}" ${t.projectId===p.id?'selected':''}>${escapeHTML(p.name)}</option>`).join('');
   const proj = DB.projects.find(p=>p.id===t.projectId);
   
@@ -303,6 +325,13 @@ function openTodoModal(todoId, presetProjectId){
       <div class="field-row">
         <div class="field"><label>日期</label><input type="date" id="tdDate" value="${t.date||''}"></div>
         <div class="field"><label>狀態</label><select id="tdStatus">${Object.entries(STATUS_LABEL).map(([k,v])=>`<option value="${k}" ${t.status===k?'selected':''}>${v}</option>`).join('')}</select></div>
+      </div>
+      <div class="field"><label>顏色標籤</label>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+          <div class="todo-color-opt ${!t.colorTag?'on':''}" onclick="selectTodoColor('')" style="width:28px;height:28px;border-radius:50%;border:2px solid var(--line);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--ink-faint);" title="無">✕</div>
+          ${TODO_COLORS.map(c=>`<div class="todo-color-opt ${t.colorTag===c.color?'on':''}" onclick="selectTodoColor('${c.color}')" style="width:28px;height:28px;border-radius:50%;background:${c.color};cursor:pointer;border:3px solid ${t.colorTag===c.color?'var(--ink)':'transparent'};transition:all 0.15s;" title="${c.name}"></div>`).join('')}
+        </div>
+        <input type="hidden" id="tdColorTag" value="${t.colorTag||''}">
       </div>
       <div class="field"><label>備註</label><textarea id="tdNote" placeholder="補充說明…">${escapeHTML(t.note||'')}</textarea></div>
       <div class="field"><label>檔案附件</label>
@@ -333,6 +362,21 @@ function openTodoModal(todoId, presetProjectId){
   setTimeout(initIcons, 10);
 }
 
+function selectTodoColor(color){
+  document.getElementById('tdColorTag').value = color;
+  document.querySelectorAll('.todo-color-opt').forEach(el=>{
+    el.style.border = '3px solid transparent';
+    el.classList.remove('on');
+  });
+  if(color){
+    event.target.style.border = '3px solid var(--ink)';
+    event.target.classList.add('on');
+  } else {
+    event.target.style.border = '2px solid var(--line)';
+    event.target.classList.add('on');
+  }
+}
+
 function refreshTodoAssigneeOptions(){
   const pid = document.getElementById('tdProject').value;
   const proj = DB.projects.find(p=>p.id===pid);
@@ -353,6 +397,7 @@ function saveTodoItem(todoId){
     status: document.getElementById('tdStatus').value,
     note: document.getElementById('tdNote').value,
     attachments: readAttachList('tdAttachList'),
+    colorTag: document.getElementById('tdColorTag').value,
   };
   
   if(todoId){ 

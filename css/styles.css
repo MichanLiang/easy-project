@@ -1435,6 +1435,26 @@ a:hover{color:var(--accent-dark);}
 
 .node:hover .del{display:flex;}
 
+.uf-del{
+  position:absolute;
+  width:18px;
+  height:18px;
+  border-radius:50%;
+  background:var(--rose);
+  color:#fff;
+  font-size:11px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  line-height:0;
+  cursor:pointer;
+  z-index:10;
+  opacity:0;
+  transition:opacity 0.15s;
+}
+.uf-del:hover{opacity:1;}
+.node:hover ~ .uf-del{opacity:1;}
+
 svg.edges{
   position:absolute;
   top:0;

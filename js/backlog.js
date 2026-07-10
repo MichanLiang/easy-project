@@ -152,9 +152,11 @@ function saveBacklogItem(id){
 // 刪除需求池項目（記住已刪除，避免重新載入）
 function dismissBacklogItem(id){
   if(!Array.isArray(DB.dismissedBacklogs)) DB.dismissedBacklogs = [];
+  const item = DB.backlogItems.find(x=>x.id===id);
   DB.dismissedBacklogs.push(id);
   DB.backlogItems = DB.backlogItems.filter(x=>x.id!==id);
-  persist(); closeModal(); render();
+  if(item) trashItem('backlog', item);
+  closeModal(); render();
 }
 
 function convertBacklogToTask(id){

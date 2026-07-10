@@ -189,10 +189,12 @@ function syncKcardToTodo(card, projectId){
 function deleteKcard(pId,dId,cardId){
   const p = DB.projects.find(x=>x.id===pId); const d = p.docs.find(x=>x.id===dId);
   const card = d.cards.find(x=>x.id===cardId);
+  if(!card) return;
   // 刪除對應的待辦任務
-  if(card && card.todoId){
+  if(card.todoId){
     DB.todos = DB.todos.filter(t=>t.id!==card.todoId);
   }
   d.cards = d.cards.filter(x=>x.id!==cardId);
-  persist(); closeModal(); render();
+  trashItem('kcard', card, {projectId:pId, docId:dId});
+  closeModal(); render();
 }

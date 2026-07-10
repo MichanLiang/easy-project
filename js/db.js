@@ -183,6 +183,99 @@ function initDB(){
   }
 }
 
+// ===== 通用垃圾桶系統 =====
+const TRASH_TYPES = {
+  todo: {label:'待辦任務', icon:'checkSquare'},
+  project: {label:'專案', icon:'folder'},
+  doc: {label:'文件', icon:'file'},
+  kcard: {label:'看板卡片', icon:'kanban'},
+  meeting: {label:'會議記錄', icon:'fileText'},
+  backlog: {label:'需求池項目', icon:'lightbulb'},
+  ufnodes: {label:'Userflow 節點', icon:'gitBranch'},
+  wfelement: {label:'Wireframe 元素', icon:'image'},
+  gantttask: {label:'甘特圖任務', icon:'barChart'},
+};
+
+// 把任意項目丟進垃圾桶
+function trashItem(type, item, extra){
+  if(!Array.isArray(DB.trash)) DB.trash = [];
+  const trashed = {
+    ...item,
+    _trashType: type,
+    _extra: extra || {},
+    deletedAt: new Date().toISOString(),
+    deletedBy: DB.currentUser
+  };
+  DB.trash.push(trashed);
+  persist();
+}
+
+// 從垃圾桶還原（通用）
+function restoreFromTrash(id){
+  const t = DB.trash.find(x=>x.id===id);
+  if(!t) return;
+  DB.trash = DB.trash.filter(x=>x.id!==id);
+  const restored = {...t};
+  delete restored.deletedAt;
+  delete restored.deletedBy;
+  delete restored._trashType;
+  delete restored._extra;
+
+  const type = t._trashType;
+  if(type==='todo'){
+    if(!Array.isArray(DB.todos)) DB.todos = [];
+    if(!DB.todos.find(x=>x.id===restored.id)) DB.todos.push(restored);
+  } else if(type==='project'){
+    if(!Array.isArray(DB.projects)) DB.projects = [];
+    if(!DB.projects.find(x=>x.id===restored.id)) DB.projects.push(restored);
+  } else if(type==='doc'){
+    const p = DB.projects.find(x=>x.id===t._extra.projectId);
+    if(p && p.docs && !p.docs.find(x=>x.id===restored.id)) p.docs.push(restored);
+  } else if(type==='kcard'){
+    const p = DB.projects.find(x=>x.id===t._extra.projectId);
+    const d = p && p.docs.find(x=>x.id===t._extra.docId);
+    if(d && d.cards && !d.cards.find(x=>x.id===restored.id)) d.cards.push(restored);
+    // 還原連結的 todo
+    if(restored.todoId){
+      if(!Array.isArray(DB.todos)) DB.todos = [];
+      if(!DB.todos.find(x=>x.id===restored.todoId)){
+        const todoData = {id:restored.todoId, title:restored.title, status:'pending', assignee:'', assignedBy:DB.currentUser, projectId:t._extra.projectId||'', date:restored.due||'', note:restored.note||'', attachments:[], colorTag:''};
+        DB.todos.push(todoData);
+      }
+    }
+  } else if(type==='meeting'){
+    if(!Array.isArray(DB.meetings)) DB.meetings = [];
+    if(!DB.meetings.find(x=>x.id===restored.id)) DB.meetings.push(restored);
+  } else if(type==='backlog'){
+    if(!Array.isArray(DB.backlogItems)) DB.backlogItems = [];
+    if(!DB.backlogItems.find(x=>x.id===restored.id)) DB.backlogItems.push(restored);
+    // 從 dismissed 移除
+    if(Array.isArray(DB.dismissedBacklogs)) DB.dismissedBacklogs = DB.dismissedBacklogs.filter(x=>x!==restored.id);
+  } else if(type==='ufnodes'){
+    const p = DB.projects.find(x=>x.id===t._extra.projectId);
+    const d = p && p.docs.find(x=>x.id===t._extra.docId);
+    if(d && d.nodes && !d.nodes.find(x=>x.id===restored.id)) d.nodes.push(restored);
+    // 還原相關 edges
+    if(t._extra.edges && d && d.edges){
+      for(const e of t._extra.edges){
+        if(!d.edges.find(x=>x.from===e.from && x.to===e.to)) d.edges.push(e);
+      }
+    }
+  } else if(type==='wfelement'){
+    const p = DB.projects.find(x=>x.id===t._extra.projectId);
+    const d = p && p.docs.find(x=>x.id===t._extra.docId);
+    if(d && d.elements && !d.elements.find(x=>x.id===restored.id)) d.elements.push(restored);
+  } else if(type==='gantttask'){
+    const p = DB.projects.find(x=>x.id===t._extra.projectId);
+    const d = p && p.docs.find(x=>x.id===t._extra.docId);
+    if(d && d.tasks && !d.tasks.find(x=>x.id===restored.id)) d.tasks.push(restored);
+  }
+
+  persist();
+  render();
+  toast('已還原');
+}
+
 function persist(){
   localStorage.setItem('jianban_db',JSON.stringify(DB));
   autoSync();

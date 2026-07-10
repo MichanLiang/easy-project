@@ -416,7 +416,7 @@ function viewTrash(){
   setTimeout(initIcons, 10);
   return `
     <div class="page-title">垃圾桶</div>
-    <div class="page-sub">已刪除的任務會在這裡保留 30 天</div>
+    <div class="page-sub">已刪除的項目會在這裡保留</div>
     ${items.length ? `
       <div style="margin-bottom:14px;">
         <button class="btn btn-danger btn-sm" onclick="emptyTrash()" style="margin-bottom:12px;">
@@ -425,13 +425,18 @@ function viewTrash(){
         </button>
       </div>
       <div class="card">${items.map(t=>{
-        const assignee = memberById(t.assignee);
+        const typeInfo = TRASH_TYPES[t._trashType] || {label:'項目', icon:'file'};
+        const title = t.title || t.name || '(未命名)';
+        const assignee = t.assignee ? memberById(t.assignee) : null;
         const assignedBy = t.assignedBy ? memberById(t.assignedBy) : null;
         return `<div class="todo-row" style="opacity:0.7;">
           <div class="todo-main" style="cursor:default;">
-            <div class="todo-title">${escapeHTML(t.title)}</div>
+            <div class="todo-title" style="display:flex;align-items:center;gap:8px;">
+              <span class="icon" style="width:14px;height:14px;color:var(--ink-faint);">${getIcon(typeInfo.icon)}</span>
+              ${escapeHTML(title)}
+              <span style="font-size:10px;padding:1px 6px;border-radius:8px;background:var(--bg-muted);color:var(--ink-faint);font-weight:500;">${typeInfo.label}</span>
+            </div>
             <div class="todo-sub">
-              ${t.date?`<span style="display:flex;align-items:center;gap:4px;"><span class="icon" style="width:12px;height:12px;">${getIcon('clock')}</span>${t.date}</span>`:''}
               ${assignee?`<span style="display:flex;align-items:center;gap:4px;">${avatarHTML(t.assignee,16)} ${escapeHTML(assignee.name)}</span>`:''}
               ${assignedBy?`<span style="font-size:11px;color:var(--ink-faint);">由 ${escapeHTML(assignedBy.name)} 指派</span>`:''}
               <span style="font-size:11px;color:var(--ink-faint);">刪除於 ${t.deletedAt ? new Date(t.deletedAt).toLocaleDateString('zh-TW') : ''}</span>
@@ -447,26 +452,6 @@ function viewTrash(){
       }).join('')}</div>
     ` : `<div class="card"><div class="empty">垃圾桶是空的</div></div>`}
   `;
-}
-
-function restoreFromTrash(id){
-  const t = DB.trash.find(x=>x.id===id);
-  if(!t) return;
-  // 從垃圾桶移除
-  DB.trash = DB.trash.filter(x=>x.id!==id);
-  // 還原到 todos（移除 deletedAt 欄位）
-  const restored = {...t};
-  delete restored.deletedAt;
-  delete restored.deletedBy;
-  if(!Array.isArray(DB.todos)) DB.todos = [];
-  // 避免重複
-  if(!DB.todos.find(x=>x.id===restored.id)){
-    DB.todos.push(restored);
-  }
-  persist();
-  syncTodosToFirestore();
-  render();
-  toast('已還原任務');
 }
 
 function permanentDeleteFromTrash(id){

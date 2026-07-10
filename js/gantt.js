@@ -125,6 +125,8 @@ function saveGanttTask(pId,dId,taskId){
 
 function deleteGanttTask(pId,dId,taskId){
   const p=DB.projects.find(x=>x.id===pId); const d=p.docs.find(x=>x.id===dId);
+  const task = d.tasks.find(x=>x.id===taskId);
   d.tasks = d.tasks.filter(x=>x.id!==taskId);
-  persist(); closeModal(); render();
+  if(task) trashItem('gantttask', task, {projectId:pId, docId:dId});
+  closeModal(); render();
 }

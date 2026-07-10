@@ -184,6 +184,8 @@ function saveStandaloneMeeting(meetingId){
 
 function deleteStandaloneMeeting(id){
   if(!DB.meetings) DB.meetings = [];
+  const m = DB.meetings.find(x=>x.id===id);
   DB.meetings = DB.meetings.filter(x => x.id !== id);
-  persist(); render();
+  if(m) trashItem('meeting', m);
+  render();
 }

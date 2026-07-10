@@ -141,12 +141,11 @@ function saveProjectSettings(id){
 }
 
 function deleteProject(id){
-  if(!confirm('確定要刪除此專案嗎？此動作無法復原。')) return;
+  if(!confirm('確定要刪除此專案嗎？')) return;
   const project = DB.projects.find(p=>p.id===id);
   DB.projects = DB.projects.filter(p=>p.id!==id);
-  persist(); closeModal(); go('projects');
-  // 同步刪除到所有成員的 Firestore
-  if(project) removeProjectFromMembers(project);
+  if(project) trashItem('project', project);
+  closeModal(); go('projects');
 }
 
 // 從所有成員的 Firestore 移除專案
@@ -275,7 +274,9 @@ function renameDoc(pId, dId){
 function deleteDoc(pId,dId){
   if(!confirm('確定刪除這份內容？')) return;
   const p = DB.projects.find(x=>x.id===pId);
+  const d = p.docs.find(x=>x.id===dId);
   p.docs = p.docs.filter(x=>x.id!==dId);
+  trashItem('doc', d, {projectId:pId});
   persist(); go('project',{projectId:pId, docId:null});
 }
 

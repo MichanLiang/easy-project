@@ -168,6 +168,13 @@ function updateUFNodeText(id,text){
 function deleteUFNode(id){
   for(const p of DB.projects) for(const d of p.docs) if(d.type==='userflow'){
     const idx = d.nodes.findIndex(x=>x.id===id);
-    if(idx>-1){ d.nodes.splice(idx,1); d.edges = d.edges.filter(e=>e.from!==id&&e.to!==id); persist(); render(); return; }
+    if(idx>-1){
+      const node = d.nodes[idx];
+      const relatedEdges = d.edges.filter(e=>e.from===id||e.to===id);
+      d.nodes.splice(idx,1);
+      d.edges = d.edges.filter(e=>e.from!==id&&e.to!==id);
+      trashItem('ufnodes', node, {projectId:p.id, docId:d.id, edges:relatedEdges});
+      persist(); render(); return;
+    }
   }
 }

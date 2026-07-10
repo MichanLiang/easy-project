@@ -287,7 +287,13 @@ function updateWFText(id,text){
 function deleteWFElement(id){
   for(const p of DB.projects) for(const d of p.docs) if(d.type==='wireframe'){
     const idx = d.elements.findIndex(x=>x.id===id);
-    if(idx>-1){ d.elements.splice(idx,1); if(wfSelected===id) wfSelected=null; persist(); render(); return; }
+    if(idx>-1){
+      const el = d.elements[idx];
+      d.elements.splice(idx,1);
+      if(wfSelected===id) wfSelected=null;
+      trashItem('wfelement', el, {projectId:p.id, docId:d.id});
+      persist(); render(); return;
+    }
   }
 }
 

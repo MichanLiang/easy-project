@@ -1497,6 +1497,47 @@ svg.edges{
   cursor:nwse-resize;
 }
 
+.wf-el .resize-line{
+  position:absolute;
+  right:-5px;
+  top:50%;
+  transform:translateY(-50%);
+  width:12px;
+  height:12px;
+  background:var(--ink-soft);
+  border-radius:3px;
+  cursor:ew-resize;
+}
+
+.wf-el .rotate{
+  position:absolute;
+  left:-5px;
+  top:-5px;
+  width:18px;
+  height:18px;
+  background:var(--accent);
+  color:#fff;
+  border-radius:50%;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  cursor:grab;
+  font-size:9px;
+}
+.wf-el:hover .rotate{display:flex;}
+
+.curve-handle{
+  position:absolute;
+  width:12px;
+  height:12px;
+  background:var(--accent);
+  border:2px solid #fff;
+  border-radius:50%;
+  cursor:grab;
+  z-index:5;
+  box-shadow:0 1px 4px rgba(0,0,0,0.3);
+}
+
 /* ============================================
    Meeting
    ============================================ */

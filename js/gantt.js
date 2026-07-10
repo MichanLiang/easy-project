@@ -32,7 +32,7 @@ function renderGantt(p,d){
     <table class="gantt" style="min-width:${150+totalDays*dayWidth}px">
       <thead>
         <tr>
-          <th style="min-width:150px;position:sticky;left:0;background:#fff;">任務</th>
+          <th style="min-width:150px;position:sticky;left:0;background:var(--bg-page);z-index:3;border-right:1px solid var(--line-light);">任務</th>
           ${days.map(dt=>`<th style="width:${dayWidth}px">${dt.getMonth()+1}/${dt.getDate()}</th>`).join('')}
         </tr>
       </thead>
@@ -41,9 +41,9 @@ function renderGantt(p,d){
           const startOffset = Math.round((new Date(t.start)-minD)/86400000);
           const span = Math.max(1, Math.round((new Date(t.end)-new Date(t.start))/86400000));
           return `<tr onclick="openGanttTaskModal('${p.id}','${d.id}','${t.id}')" style="cursor:pointer">
-            <td class="namecell" style="vertical-align:middle;">${escapeHTML(t.title)}</td>
-            <td colspan="${totalDays}" style="position:relative;padding:0;height:32px;">
-              <div style="position:absolute;top:6px;left:${startOffset*dayWidth}px;width:${span*dayWidth-4}px;height:20px;background:${t.color||'#C4A882'};border-radius:6px;opacity:0.9;"></div>
+            <td class="namecell" style="vertical-align:middle;position:sticky;left:0;background:var(--bg-page);z-index:2;border-right:1px solid var(--line-light);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHTML(t.title)}</td>
+            <td style="position:relative;padding:0;height:32px;">
+              <div class="gantt-bar" style="position:absolute;top:6px;left:${startOffset*dayWidth}px;width:${span*dayWidth-4}px;height:20px;background:${t.color||'#C4A882'};border-radius:6px;opacity:0.9;"></div>
             </td>
           </tr>`;
         }).join('')}

@@ -11,8 +11,6 @@ const WF_SHAPES = [
 
 const WF_COLORS = ['#F8F9FC','#FFFFFF','#E0E0E0','#BDBDBD','#9E9E9E','#757575','#424242','#212121','#000000','#C4A4A4','#9AABB8','#A8B5A0','#B8A9C9','#C9B896','#C4A882','#D4C5B9'];
 
-const WF_BTN_COLORS = ['#C4A4A4','#9AABB8','#A8B5A0','#B8A9C9','#C9B896','#C4A882'];
-
 function renderWireframe(p,d){
   return `
   <div class="board-toolbar">
@@ -51,39 +49,54 @@ function renderWireframe(p,d){
 
 function wfShapeStyle(el){
   const bgColor = el.color || '#F8F9FC';
-  if(el.shape==='hline') return `background:transparent;border:none;border-top:3px solid ${el.lineColor||'#424242'};height:0;`;
-  if(el.shape==='wline') return `background:transparent;border:none;height:0;`;
-  const base = `background:${bgColor};border:2px solid var(--ink-muted);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--ink-soft);font-weight:600;`;
+  const rot = el.rotation ? `transform:rotate(${el.rotation}deg);` : '';
+  if(el.shape==='hline') return `background:transparent;border:none;border-top:3px solid ${el.lineColor||'#424242'};height:0;${rot}`;
+  if(el.shape==='wline') return `background:transparent;border:none;height:0;${rot}`;
+  const base = `background:${bgColor};border:2px solid var(--ink-muted);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--ink-soft);font-weight:600;${rot}`;
   if(el.shape==='circle') return base+'border-radius:50%;';
   if(el.shape==='button'){
     const btnColor = el.btnColor || '#C4A4A4';
-    return `border-radius:24px;background:${btnColor};color:#fff;border:2px solid ${btnColor};font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.15);display:flex;align-items:center;justify-content:center;font-size:13px;`;
+    return `border-radius:24px;background:${btnColor};color:#fff;border:2px solid ${btnColor};font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.15);display:flex;align-items:center;justify-content:center;font-size:13px;${rot}`;
   }
-  if(el.shape==='text') return 'border:1px dashed var(--ink-muted);display:flex;align-items:center;padding-left:8px;font-size:14px;color:var(--ink-soft);';
+  if(el.shape==='text') return `border:1px dashed var(--ink-muted);display:flex;align-items:center;padding-left:8px;font-size:14px;color:var(--ink-soft);${rot}`;
   return base+'border-radius:var(--radius);';
 }
 
 function renderWFElement(el){
+  const isSelected = wfSelected===el.id;
+  const delStyle = isSelected ? 'display:flex;' : 'display:none;';
+  const resizeStyle = isSelected && el.shape!=='hline' && el.shape!=='wline' ? 'display:block;' : 'display:none;';
+  const rotateStyle = isSelected ? 'display:block;' : 'display:none;';
+  const curveStyle = isSelected && el.shape==='wline' ? 'display:flex;' : 'display:none;';
+  
   if(el.shape==='hline'){
-    return `<div class="wf-el" id="wfel-${el.id}" data-id="${el.id}" style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:3px;${wfShapeStyle(el)}" onclick="event.stopPropagation();selectWFElement('${el.id}')">
-      <div class="del" onmousedown="event.stopPropagation()" onclick="deleteWFElement('${el.id}')"><span class="icon" style="width:10px;height:10px;">${getIcon('x')}</span></div>
-      <div class="resize" onmousedown="event.stopPropagation();startWFResize(event,'${el.id}')"></div>
+    return `<div class="wf-el ${isSelected?'wf-selected':''}" id="wfel-${el.id}" data-id="${el.id}" style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:6px;${wfShapeStyle(el)};cursor:move;" onclick="event.stopPropagation();selectWFElement('${el.id}')">
+      <div class="del" style="${delStyle}" onmousedown="event.stopPropagation()" onclick="deleteWFElement('${el.id}')"><span class="icon" style="width:10px;height:10px;">${getIcon('x')}</span></div>
+      <div class="resize-line" style="${resizeStyle}" onmousedown="event.stopPropagation();startWFResize(event,'${el.id}')"></div>
     </div>`;
   }
   if(el.shape==='wline'){
-    return `<div class="wf-el" id="wfel-${el.id}" data-id="${el.id}" style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:none;background:transparent;" onclick="event.stopPropagation();selectWFElement('${el.id}')">
-      <svg width="100%" height="100%" style="overflow:visible;"><path d="M0,${el.h/2} C${el.w/4},0 ${el.w*3/4},${el.h} ${el.w},${el.h/2}" fill="none" stroke="${el.lineColor||'#424242'}" stroke-width="3"/></svg>
-      <div class="del" onmousedown="event.stopPropagation()" onclick="deleteWFElement('${el.id}')"><span class="icon" style="width:10px;height:10px;">${getIcon('x')}</span></div>
-      <div class="resize" onmousedown="event.stopPropagation();startWFResize(event,'${el.id}')"></div>
+    const curveY = el.curve || 0.5;
+    const cp1x = el.w * 0.25, cp1y = el.h * (1 - curveY);
+    const cp2x = el.w * 0.75, cp2y = el.h * curveY;
+    return `<div class="wf-el ${isSelected?'wf-selected':''}" id="wfel-${el.id}" data-id="${el.id}" style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:none;background:transparent;cursor:move;" onclick="event.stopPropagation();selectWFElement('${el.id}')">
+      <svg width="100%" height="100%" style="overflow:visible;"><path d="M0,${el.h/2} C${cp1x},${cp1y} ${cp2x},${cp2y} ${el.w},${el.h/2}" fill="none" stroke="${el.lineColor||'#424242'}" stroke-width="3"/></svg>
+      ${isSelected ? `<div class="curve-handle" style="left:${cp1x-6}px;top:${cp1y-6}px;" onmousedown="event.stopPropagation();startWFCurveDrag(event,'${el.id}','cp1')"></div>
+      <div class="curve-handle" style="left:${cp2x-6}px;top:${cp2y-6}px;" onmousedown="event.stopPropagation();startWFCurveDrag(event,'${el.id}','cp2')"></div>` : ''}
+      <div class="del" style="${delStyle}" onmousedown="event.stopPropagation()" onclick="deleteWFElement('${el.id}')"><span class="icon" style="width:10px;height:10px;">${getIcon('x')}</span></div>
+      <div class="resize" style="${resizeStyle}" onmousedown="event.stopPropagation();startWFResize(event,'${el.id}')"></div>
     </div>`;
   }
   return `
-  <div class="wf-el ${wfSelected===el.id?'wf-selected':''}" id="wfel-${el.id}" data-id="${el.id}" style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;${wfShapeStyle(el)}" onclick="event.stopPropagation();selectWFElement('${el.id}')">
+  <div class="wf-el ${isSelected?'wf-selected':''}" id="wfel-${el.id}" data-id="${el.id}" style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;${wfShapeStyle(el)};cursor:move;" onclick="event.stopPropagation();selectWFElement('${el.id}')">
     <span contenteditable="true" onmousedown="event.stopPropagation()" onblur="updateWFText('${el.id}',this.textContent)" style="outline:none;width:100%;text-align:center;">${escapeHTML(el.text||'')}</span>
-    <div class="del" onmousedown="event.stopPropagation()" onclick="deleteWFElement('${el.id}')">
+    <div class="del" style="${delStyle}" onmousedown="event.stopPropagation()" onclick="deleteWFElement('${el.id}')">
       <span class="icon" style="width:10px;height:10px;">${getIcon('x')}</span>
     </div>
-    <div class="resize" onmousedown="event.stopPropagation();startWFResize(event,'${el.id}')"></div>
+    <div class="resize" style="${resizeStyle}" onmousedown="event.stopPropagation();startWFResize(event,'${el.id}')"></div>
+    <div class="rotate" style="${rotateStyle}" onmousedown="event.stopPropagation();startWFRotate(event,'${el.id}')">
+      <span class="icon" style="width:10px;height:10px;">${getIcon('refreshCw')}</span>
+    </div>
   </div>`;
 }
 
@@ -130,10 +143,10 @@ function initWireframeBoard(d){
   const canvas = document.getElementById('wfCanvas');
   if(!canvas) return;
   const pid = canvas.dataset.pid, did = canvas.dataset.did;
-  wfState = {pid, did, drag:null, resize:null};
+  wfState = {pid, did, drag:null, resize:null, rotate:null, curveDrag:null};
   canvas.querySelectorAll('.wf-el').forEach(elDiv=>{
     elDiv.addEventListener('mousedown', (e)=>{
-      if(e.target.closest('.del')||e.target.closest('.resize')) return;
+      if(e.target.closest('.del')||e.target.closest('.resize')||e.target.closest('.rotate')||e.target.closest('.curve-handle')) return;
       const rect = canvas.getBoundingClientRect();
       wfState.drag = {id: elDiv.dataset.id, offX: e.clientX-rect.left-elDiv.offsetLeft, offY: e.clientY-rect.top-elDiv.offsetTop};
       wfSelected = elDiv.dataset.id;
@@ -157,8 +170,34 @@ function initWireframeBoard(d){
       const proj = DB.projects.find(x2=>x2.id===pid); const doc = proj.docs.find(x2=>x2.id===did);
       const item = doc.elements.find(it=>it.id===wfState.resize.id); item.w=w; item.h=h;
     }
+    if(wfState.rotate){
+      const el = document.getElementById('wfel-'+wfState.rotate.id);
+      const rect = el.getBoundingClientRect();
+      const cx = rect.left + rect.width/2;
+      const cy = rect.top + rect.height/2;
+      const angle = Math.atan2(e.clientY-cy, e.clientX-cx) * 180 / Math.PI + 90;
+      const snapped = Math.round(angle / 15) * 15;
+      el.style.transform = `rotate(${snapped}deg)`;
+      const proj = DB.projects.find(x2=>x2.id===pid); const doc = proj.docs.find(x2=>x2.id===did);
+      const item = doc.elements.find(it=>it.id===wfState.rotate.id); item.rotation = snapped;
+    }
+    if(wfState.curveDrag){
+      const canvasRect = canvas.getBoundingClientRect();
+      const mx = e.clientX - canvasRect.left;
+      const my = e.clientY - canvasRect.top;
+      const proj = DB.projects.find(x2=>x2.id===pid); const doc = proj.docs.find(x2=>x2.id===did);
+      const item = doc.elements.find(it=>it.id===wfState.curveDrag.id);
+      if(item){
+        const relY = 1 - (my - item.y) / item.h;
+        item.curve = Math.max(0.1, Math.min(0.9, relY));
+        render();
+      }
+    }
   };
-  canvas.onmouseup = ()=>{ if(wfState.drag||wfState.resize) persist(); wfState.drag=null; wfState.resize=null; };
+  canvas.onmouseup = ()=>{
+    if(wfState.drag||wfState.resize||wfState.rotate||wfState.curveDrag) persist();
+    wfState.drag=null; wfState.resize=null; wfState.rotate=null; wfState.curveDrag=null;
+  };
 }
 
 function startWFResize(e,id){
@@ -166,11 +205,19 @@ function startWFResize(e,id){
   wfState.resize = {id, startX:e.clientX, startY:e.clientY, startW:el.offsetWidth, startH:el.offsetHeight};
 }
 
+function startWFRotate(e,id){
+  wfState.rotate = {id};
+}
+
+function startWFCurveDrag(e,id,cp){
+  wfState.curveDrag = {id, cp};
+}
+
 function addWFElement(pId,dId,shape){
   const p=DB.projects.find(x=>x.id===pId); const d=p.docs.find(x=>x.id===dId);
-  const defaults = {rect:{w:160,h:100,text:'區塊'}, square:{w:100,h:100,text:'方塊'}, circle:{w:90,h:90,text:'圖示'}, button:{w:120,h:40,text:'按鈕文字'}, text:{w:150,h:26,text:'文字內容'}, hline:{w:200,h:4,text:''}, wline:{w:200,h:60,text:''}};
+  const defaults = {rect:{w:160,h:100,text:'區塊'}, square:{w:100,h:100,text:'方塊'}, circle:{w:90,h:90,text:'圖示'}, button:{w:120,h:40,text:'按鈕文字'}, text:{w:150,h:26,text:'文字內容'}, hline:{w:200,h:6,text:''}, wline:{w:200,h:80,text:''}};
   const def = defaults[shape];
-  d.elements.push({id:uid(), shape, x:60+Math.random()*300, y:60+Math.random()*200, w:def.w, h:def.h, text:def.text, color:'#F8F9FC'});
+  d.elements.push({id:uid(), shape, x:60+Math.random()*300, y:60+Math.random()*200, w:def.w, h:def.h, text:def.text, color:'#F8F9FC', rotation:0, curve:0.5});
   persist(); render();
 }
 

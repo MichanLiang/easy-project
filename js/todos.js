@@ -1,6 +1,6 @@
 /* ================= TODOS (global + per-project) ================= */
 const STATUS_LABEL = {pending:'待處理', doing:'進行中', testing:'測試中', done:'已完成'};
-const TODO_COLORS = [
+const DEFAULT_TODO_COLORS = [
   {color:'#C4A4A4', name:'工作'},
   {color:'#9AABB8', name:'專案'},
   {color:'#A8B5A0', name:'個人'},
@@ -8,6 +8,21 @@ const TODO_COLORS = [
   {color:'#C9B896', name:'會議'},
   {color:'#C4A882', name:'緊急'},
 ];
+let TODO_COLORS = JSON.parse(localStorage.getItem('todo_custom_colors') || 'null') || DEFAULT_TODO_COLORS.slice();
+function saveTodoColors(){ localStorage.setItem('todo_custom_colors', JSON.stringify(TODO_COLORS)); }
+function openTodoColorSettings(){
+  var rows = TODO_COLORS.map(function(c,i){
+    return '<div class="field-row" style="margin-bottom:8px;align-items:flex-end;">'
+      + '<div class="field" style="flex:1;"><label>名稱</label><input type="text" id="colorName'+i+'" value="'+escapeHTML(c.name)+'" maxlength="6"></div>'
+      + '<div class="field" style="width:80px;"><label>顏色</label><input type="color" id="colorVal'+i+'" value="'+c.color+'" style="width:100%;height:32px;"></div>'
+      + '<button class="btn btn-sm btn-danger" onclick="removeTodoColor('+i+')" style="margin-bottom:2px;"><span class="icon" style="width:14px;height:14px;">'+getIcon('trash2')+'</span></button>'
+      + '</div>';
+  }).join('');
+  openModal('<div class="modal-head"><h3>編輯顏色標籤</h3></div><div class="modal-body">'+rows+'<button class="btn btn-sm" onclick="addTodoColor()" style="margin-top:4px;"><span class="icon" style="width:14px;height:14px;">'+getIcon('plus')+'</span> 新增顏色</button></div><div class="modal-foot"><button class="btn btn-cancel" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="saveTodoColorSettings()">儲存</button></div>');
+}
+function addTodoColor(){ TODO_COLORS.push({name:'新標籤',color:'#B8A9C9'}); saveTodoColors(); openTodoColorSettings(); }
+function removeTodoColor(i){ TODO_COLORS.splice(i,1); saveTodoColors(); openTodoColorSettings(); }
+function saveTodoColorSettings(){ for(var i=0;i<TODO_COLORS.length;i++){ var n=document.getElementById('colorName'+i), v=document.getElementById('colorVal'+i); if(n) TODO_COLORS[i].name=n.value.trim()||'未命名'; if(v) TODO_COLORS[i].color=v.value; } saveTodoColors(); closeModal(); render(); toast('顏色標籤已更新'); }
 
 // Firestore 同步任務
 async function syncTodosToFirestore(){
@@ -89,12 +104,23 @@ async function loadAssignedTasks(){
         const todosRef = firebase.firestore().collection('users').doc(member.id).collection('todos');
         const snapshot = await todosRef.where('assignee', '==', user.uid).get();
         
+        // 收集所有指派給我的有效任務 ID
+        const remoteIds = new Set();
         snapshot.forEach(doc => {
           const task = {id: doc.id, ...doc.data()};
+          remoteIds.add(task.id);
           // 檢查是否已存在
           if(!DB.todos.find(t => t.id === task.id)){
             DB.todos.push(task);
           }
+        });
+        
+        // 清除 DB.todos 中已經從對方 subcollection 被刪除的任務（對方已刪除）
+        DB.todos = DB.todos.filter(t => {
+          if(t.assignedBy === member.id && t.assignee === user.uid && !remoteIds.has(t.id)){
+            return false; // 對方已刪除此任務
+          }
+          return true;
         });
       } catch (e) {
         // 可能無權限存取
@@ -239,6 +265,11 @@ async function deleteTaskFromAssigner(task){
   if(!user || state.isGuest) return;
   
   try {
+    // 1. 刪除指派人 subcollection 中的任務
+    const todosRef = firebase.firestore().collection('users').doc(task.assignedBy).collection('todos');
+    await todosRef.doc(task.id).delete().catch(()=>{});
+    
+    // 2. 從指派人主文檔的 todos 陣列中移除
     const assignerRef = firebase.firestore().collection('users').doc(task.assignedBy);
     const assignerDoc = await assignerRef.get();
     
@@ -259,6 +290,9 @@ function viewTodos(){
   const assigned = DB.todos.filter(t=>t.assignedBy===me && t.assignee && t.assignee!==me);
   const mine = DB.todos.filter(t=>t.assignedBy===me && (!t.assignee || t.assignee===me));
   
+  // 使用自訂顏色標籤（從 localStorage 讀取或使用預設）
+  const customColors = JSON.parse(localStorage.getItem('todo_custom_colors') || 'null') || TODO_COLORS;
+  
   setTimeout(() => {
     initIcons();
     loadAssignedTasks();
@@ -267,6 +301,17 @@ function viewTodos(){
   return `
     <div class="page-title">待辦清單</div>
     <div class="page-sub">收件匣是別人指派給你的任務，指派是你分配給別人的任務，我的任務是你自己負責的</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;">
+      <span style="font-size:12px;color:var(--ink-faint);line-height:26px;">顏色標籤：</span>
+      ${customColors.map(c=>`<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border-radius:12px;font-size:12px;background:${c.color}22;color:${c.color};font-weight:600;border:1px solid ${c.color}44;">
+        <span style="width:8px;height:8px;border-radius:50%;background:${c.color};"></span>
+        ${escapeHTML(c.name)}
+      </span>`).join('')}
+      <button class="btn btn-sm" onclick="openTodoColorSettings()" style="font-size:11px;padding:2px 8px;">
+        <span class="icon" style="width:12px;height:12px;">${getIcon('settings')}</span>
+        編輯
+      </button>
+    </div>
     <div class="section-title">
       <span class="dot" style="background:var(--accent)"></span>
       收件匣 ${inbox.length?`<span style="color:var(--ink-faint);font-weight:500">(${inbox.length})</span>`:''}
@@ -328,8 +373,9 @@ function openTodoModal(todoId, presetProjectId){
       </div>
       <div class="field"><label>顏色標籤</label>
         <div style="display:flex;flex-wrap:wrap;gap:6px;">
-          <div class="todo-color-opt ${!t.colorTag?'on':''}" onclick="selectTodoColor('')" style="width:28px;height:28px;border-radius:50%;border:2px solid var(--line);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--ink-faint);" title="無">✕</div>
-          ${TODO_COLORS.map(c=>`<div class="todo-color-opt ${t.colorTag===c.color?'on':''}" onclick="selectTodoColor('${c.color}')" style="width:28px;height:28px;border-radius:50%;background:${c.color};cursor:pointer;border:3px solid ${t.colorTag===c.color?'var(--ink)':'transparent'};transition:all 0.15s;" title="${c.name}"></div>`).join('')}
+          <div class="todo-color-opt ${!t.colorTag?'on':''}" onclick="selectTodoColor('')" style="height:28px;border-radius:14px;border:2px solid var(--line);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--ink-faint);padding:0 8px;" title="無">✕</div>
+          ${TODO_COLORS.map(c=>`<div class="todo-color-opt ${t.colorTag===c.color?'on':''}" onclick="selectTodoColor('${c.color}')" style="height:28px;border-radius:14px;background:${c.color}22;cursor:pointer;border:2px solid ${t.colorTag===c.color?c.color:'transparent'};transition:all 0.15s;padding:0 10px;display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:${c.color};" title="${c.name}"><span style="width:8px;height:8px;border-radius:50%;background:${c.color};"></span>${escapeHTML(c.name)}</div>`).join('')}
+          <button class="btn btn-sm" onclick="openTodoColorSettings()" style="height:28px;border-radius:14px;font-size:11px;padding:0 8px;">編輯</button>
         </div>
         <input type="hidden" id="tdColorTag" value="${t.colorTag||''}">
       </div>

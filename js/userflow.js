@@ -117,13 +117,31 @@ function initUserflowBoard(d){
 function drawUFEdges(d){
   const svg = document.getElementById('ufEdgesSvg');
   if(!svg) return;
-  svg.innerHTML = `<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#C4A882"/></marker></defs>`;
+  svg.innerHTML = `<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#C4A882"/></marker></defs>`;
   d.edges.forEach(e=>{
     const a = d.nodes.find(n=>n.id===e.from), b = d.nodes.find(n=>n.id===e.to);
     if(!a||!b) return;
-    const x1=a.x+a.w/2, y1=a.y+a.h/2, x2=b.x+b.w/2, y2=b.y+b.h/2;
-    svg.innerHTML += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#C4A882" stroke-width="2" marker-end="url(#arrow)"/>`;
+    // 計算線與矩形邊緣的交點（不連到中心）
+    const acx=a.x+a.w/2, acy=a.y+a.h/2, bcx=b.x+b.w/2, bcy=b.y+b.h/2;
+    const p1 = rectEdgePoint(acx, acy, a.w, a.h, bcx, bcy);
+    const p2 = rectEdgePoint(bcx, bcy, b.w, b.h, acx, acy);
+    svg.innerHTML += `<line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="#C4A882" stroke-width="2" marker-end="url(#arrow)"/>`;
   });
+}
+
+// 從矩形中心朝目標方向，找到矩形邊緣的交點
+function rectEdgePoint(cx, cy, w, h, tx, ty){
+  const dx = tx - cx, dy = ty - cy;
+  if(dx===0 && dy===0) return {x:cx, y:cy};
+  const hw = w/2, hh = h/2;
+  const absDx = Math.abs(dx), absDy = Math.abs(dy);
+  let scale;
+  if(absDx * hh > absDy * hw){
+    scale = hw / absDx;
+  } else {
+    scale = hh / absDy;
+  }
+  return {x: cx + dx*scale, y: cy + dy*scale};
 }
 
 function addUFNode(pId,dId,shape){

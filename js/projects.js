@@ -352,3 +352,44 @@ async function syncProjectUpdateToMembers(project){
     } catch(e) { /* 可能無權限 */ }
   }
 }
+
+// 從其他成員處載入專案（確保所有成員都能看到共享專案）
+async function loadProjectsFromMembers(){
+  const user = auth.currentUser;
+  if(!user || state.isGuest) return;
+  if(!Array.isArray(DB.projects)) DB.projects = [];
+  
+  try {
+    for(const member of DB.members){
+      if(member.id === user.uid) continue;
+      try {
+        const memberDoc = await firebase.firestore().collection('users').doc(member.id).get();
+        if(memberDoc.exists){
+          const memberProjects = memberDoc.data().projects || [];
+          for(const p of memberProjects){
+            if(p.memberIds && p.memberIds.includes(user.uid)){
+              const existing = DB.projects.find(x=>x.id===p.id);
+              if(!existing){
+                DB.projects.push(p);
+              } else {
+                existing.name = p.name || existing.name;
+                existing.status = p.status || existing.status;
+                existing.memberIds = p.memberIds || existing.memberIds;
+                if(p.docs && Array.isArray(existing.docs)){
+                  for(const d of p.docs){
+                    if(!existing.docs.find(x=>x.id===d.id)){
+                      existing.docs.push(d);
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch(e){ /* 可能無權限 */ }
+    }
+    persist();
+  } catch(error) {
+    console.error('載入專案失敗:', error);
+  }
+}

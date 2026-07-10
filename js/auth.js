@@ -36,6 +36,9 @@ function initAuth() {
         // 從團隊同步成員
         await syncTeamMembers();
         
+        // 從其他成員處載入共享專案
+        await loadProjectsFromMembers();
+        
         // 重新渲染
         render();
       }

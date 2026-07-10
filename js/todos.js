@@ -182,11 +182,8 @@ async function loadMyAssignedTasks(){
           t.date = remoteData.date || t.date;
           t.note = remoteData.note || t.note;
         }
-        // 如果對方 subcollection 沒有了（代表被刪除了）
-        if(!doc.exists){
-          // 從本地也移除
-          DB.todos = DB.todos.filter(x => x.id !== t.id);
-        }
+        // 如果對方 subcollection 沒有了，不急著刪——可能只是還沒同步
+        // 只有對方明確刪除時才移除（由 trashTaskForAssignee 處理）
       } catch(e){
         // 可能無權限，跳過
       }

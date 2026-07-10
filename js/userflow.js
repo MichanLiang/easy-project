@@ -27,6 +27,10 @@ function renderUserflow(p,d){
       註解
     </button>
     <span class="hint" style="margin:0">提示：拖曳移動；Shift+點擊兩節點連線；右上角 ✕ 刪除</span>
+    <button class="btn btn-sm" onclick="exportUserflow()" style="margin-left:auto;">
+      <span class="icon">${getIcon('download')}</span>
+      匯出圖片
+    </button>
   </div>
   <div class="board-wrap" id="ufBoardWrap">
     <div class="board-canvas" id="ufCanvas" data-pid="${p.id}" data-did="${d.id}">
@@ -142,6 +146,18 @@ function rectEdgePoint(cx, cy, w, h, tx, ty){
     scale = hh / absDy;
   }
   return {x: cx + dx*scale, y: cy + dy*scale};
+}
+
+function exportUserflow(){
+  const canvas = document.getElementById('ufCanvas');
+  if(!canvas || typeof html2canvas==='undefined'){ toast('圖片匯出功能需要網路連線'); return; }
+  html2canvas(canvas, {backgroundColor:'#ffffff'}).then(c=>{
+    const link = document.createElement('a');
+    link.download = 'userflow.png';
+    link.href = c.toDataURL('image/png');
+    link.click();
+    toast('已匯出圖片');
+  }).catch(()=>toast('匯出失敗，請確認網路連線'));
 }
 
 function addUFNode(pId,dId,shape){

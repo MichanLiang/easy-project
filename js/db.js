@@ -113,11 +113,12 @@ function setupRealtimeListeners(){
   // 1. 監聽自己的文件
   firebase.firestore().collection('users').doc(user.uid)
     .onSnapshot({ includeMetadataChanges: true }, (snap) => {
-      if(isLocalWrite || snap.metadata.fromCache) return;
+      if(snap.metadata.fromCache) return;
       const data = snap.data();
       if(!data) return;
 
-      // 合併專案（用 updatedAt 比較，防止覆蓋較新的本地資料）
+      const before = JSON.stringify(DB.projects);
+
       if(data.projects){
         const incoming = data.projects;
         const local = DB.projects;
@@ -128,16 +129,13 @@ function setupRealtimeListeners(){
         for(const ip of incoming){
           const lp = localMap[ip.id];
           if(!lp){
-            // 新專案，直接加入
             merged.push(ip);
           } else {
-            // 比較 updatedAt 決定用哪個版本
             const localTime = new Date(lp.updatedAt||0).getTime();
             const incomingTime = new Date(ip.updatedAt||0).getTime();
             merged.push(incomingTime > localTime ? ip : lp);
           }
         }
-        // 檢查本地有但遠端沒有的專案（可能是其他人刪的）
         DB.projects = merged;
       }
 
@@ -153,8 +151,11 @@ function setupRealtimeListeners(){
         if(prevMembers !== newMembers) setupMemberListeners();
       }
 
-      persist();
-      render();
+      const after = JSON.stringify(DB.projects);
+      if(before !== after){
+        persist();
+        render();
+      }
     });
 
   // 2. 監聽已接受的成員文件（同步共用專案）
@@ -162,7 +163,6 @@ function setupRealtimeListeners(){
 }
 
 function setupMemberListeners(){
-  // 取消舊的監聽
   memberUnsubscibes.forEach(unsub => unsub());
   memberUnsubscibes = [];
 
@@ -173,15 +173,15 @@ function setupMemberListeners(){
   for(const member of acceptedMembers){
     const unsub = firebase.firestore().collection('users').doc(member.id)
       .onSnapshot({ includeMetadataChanges: true }, (snap) => {
-        if(isLocalWrite || snap.metadata.fromCache) return;
+        if(snap.metadata.fromCache) return;
         const data = snap.data();
         if(!data || !data.projects) return;
 
-        // 只合併這個成員擁有的專案
+        const before = JSON.stringify(DB.projects);
+
         const myIds = new Set(DB.projects.map(p => p.id));
         for(const mp of data.projects){
           if(myIds.has(mp.id)){
-            // 已存在，檢查是否更新
             const local = DB.projects.find(p => p.id === mp.id);
             const localTime = new Date(local?.updatedAt||0).getTime();
             const incomingTime = new Date(mp.updatedAt||0).getTime();
@@ -189,12 +189,15 @@ function setupMemberListeners(){
               Object.assign(local, mp);
             }
           } else {
-            // 新專案，加入
             DB.projects.push(mp);
           }
         }
-        persist();
-        render();
+
+        const after = JSON.stringify(DB.projects);
+        if(before !== after){
+          persist();
+          render();
+        }
       });
     memberUnsubscibes.push(unsub);
   }

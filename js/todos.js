@@ -197,6 +197,8 @@ async function loadMyAssignedTasks(){
     console.error('載入我指派的任務失敗:', error);
   }
 }
+
+function renderTodoRow(t){
   const overdue = t.date && t.date < todayStr() && t.status!=='done';
   const assignee = memberById(t.assignee);
   const assignedBy = t.assignedBy ? memberById(t.assignedBy) : null;

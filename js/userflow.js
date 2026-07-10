@@ -190,6 +190,7 @@ function deleteUFNode(id){
       d.nodes.splice(idx,1);
       d.edges = d.edges.filter(e=>e.from!==id&&e.to!==id);
       trashItem('ufnodes', node, {projectId:p.id, docId:d.id, edges:relatedEdges});
+      syncProjectAfterChange(p.id);
       persist(); render(); return;
     }
   }

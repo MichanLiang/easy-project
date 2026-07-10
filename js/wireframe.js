@@ -292,6 +292,7 @@ function deleteWFElement(id){
       d.elements.splice(idx,1);
       if(wfSelected===id) wfSelected=null;
       trashItem('wfelement', el, {projectId:p.id, docId:d.id});
+      syncProjectAfterChange(p.id);
       persist(); render(); return;
     }
   }

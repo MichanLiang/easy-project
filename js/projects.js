@@ -165,6 +165,12 @@ async function removeProjectFromMembers(project){
   }
 }
 
+// 專案內容變更後同步到所有成員
+function syncProjectAfterChange(projectId){
+  const p = DB.projects.find(x=>x.id===projectId);
+  if(p) syncProjectUpdateToMembers(p);
+}
+
 /* ================= PROJECT DETAIL VIEW ================= */
 const DOC_TYPES = [
   {type:'doc', label:'文件', icon:'file', color:'#C2B5B5'},
@@ -277,6 +283,7 @@ function deleteDoc(pId,dId){
   const d = p.docs.find(x=>x.id===dId);
   p.docs = p.docs.filter(x=>x.id!==dId);
   trashItem('doc', d, {projectId:pId});
+  syncProjectAfterChange(pId);
   persist(); go('project',{projectId:pId, docId:null});
 }
 

@@ -196,5 +196,6 @@ function deleteKcard(pId,dId,cardId){
   }
   d.cards = d.cards.filter(x=>x.id!==cardId);
   trashItem('kcard', card, {projectId:pId, docId:dId});
+  syncProjectAfterChange(pId);
   closeModal(); render();
 }

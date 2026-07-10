@@ -128,5 +128,6 @@ function deleteGanttTask(pId,dId,taskId){
   const task = d.tasks.find(x=>x.id===taskId);
   d.tasks = d.tasks.filter(x=>x.id!==taskId);
   if(task) trashItem('gantttask', task, {projectId:pId, docId:dId});
+  syncProjectAfterChange(pId);
   closeModal(); render();
 }

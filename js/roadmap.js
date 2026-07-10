@@ -36,7 +36,9 @@ function addRoadmapPhase(pId,dId){
 
 function removeRoadmapPhase(pId,dId,pi){
   const p=DB.projects.find(x=>x.id===pId); const d=p.docs.find(x=>x.id===dId);
-  d.phases.splice(pi,1); persist(); render();
+  d.phases.splice(pi,1);
+  syncProjectAfterChange(pId);
+  persist(); render();
 }
 
 function updateRoadmapField(pId,dId,pi,field,val){

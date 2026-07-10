@@ -940,18 +940,20 @@ a:hover{color:var(--accent-dark);}
   border:1px solid var(--line-light);
   border-radius:var(--radius);
   overflow:hidden;
-  background:var(--bg-page);
+  background:var(--panel);
 }
 
 .gantt-left{
   overflow:hidden;
   flex-shrink:0;
   border-right:1px solid var(--line-light);
-  background:var(--bg-page);
+  background:var(--panel);
+  position:relative;
+  z-index:1;
 }
 
 .gantt-left .gantt th{
-  background:var(--bg-page);
+  background:var(--panel);
 }
 
 .gantt-right{
@@ -972,7 +974,7 @@ a:hover{color:var(--accent-dark);}
   padding:8px 6px;
   border-bottom:1px solid var(--line);
   text-align:center;
-  background:var(--bg-page);
+  background:var(--panel);
 }
 
 .gantt td{
@@ -987,8 +989,10 @@ a:hover{color:var(--accent-dark);}
   font-weight:600;
   padding-left:12px;
   white-space:nowrap;
-  background:var(--bg-page);
+  background:var(--panel);
   border-right:none;
+  position:relative;
+  z-index:1;
 }
 
 .gantt-bar{

@@ -31,7 +31,7 @@ function removeTodoColor(i){ TODO_COLORS.splice(i,1); saveTodoColors(); openTodo
 function resetTodoColors(){ TODO_COLORS = DEFAULT_TODO_COLORS.slice(); saveTodoColors(); openTodoColorSettings(); toast('已恢復預設顏色'); }
 function saveTodoColorSettings(){ for(var i=0;i<TODO_COLORS.length;i++){ var n=document.getElementById('colorName'+i), v=document.getElementById('colorVal'+i); if(n) TODO_COLORS[i].name=n.value.trim()||'未命名'; if(v) TODO_COLORS[i].color=v.value; } saveTodoColors(); closeModal(); render(); toast('顏色標籤已更新'); }
 
-// Firestore 同步任務
+// Firestore 同步任務（只同步「我建立的」任務，不要覆蓋別人指派給我的）
 async function syncTodosToFirestore(){
   const user = auth.currentUser;
   if(!user || state.isGuest) return;
@@ -44,9 +44,11 @@ async function syncTodosToFirestore(){
     const firestoreIds = new Set();
     snapshot.forEach(doc => firestoreIds.add(doc.id));
     
-    // 同步本地任務到 Firestore
+    // 只同步「我建立的」任務（assignedBy 是我自己，或是沒有 assignedBy 的個人任務）
+    // 不要同步別人指派給我的任務（那些由 loadAssignedTasks 處理）
+    const myTasks = DB.todos.filter(t => !t.assignedBy || t.assignedBy === user.uid);
     const localIds = new Set();
-    for(const todo of DB.todos){
+    for(const todo of myTasks){
       localIds.add(todo.id);
       await todosRef.doc(todo.id).set({
         ...todo,
@@ -54,9 +56,14 @@ async function syncTodosToFirestore(){
       });
     }
     
-    // 刪除 Firestore 中不在本地的任務
+    // 刪除 Firestore 中不在本地的任務（只刪我建立的，不要刪別人指派給我的）
     for(const firestoreId of firestoreIds){
       if(!localIds.has(firestoreId)){
+        // 檢查這是不是別人指派給我的（不該由我來刪）
+        const existingTask = DB.todos.find(t => t.id === firestoreId);
+        if(existingTask && existingTask.assignedBy && existingTask.assignedBy !== user.uid){
+          continue; // 別人指派的，不要動
+        }
         await todosRef.doc(firestoreId).delete();
       }
     }
@@ -111,14 +118,26 @@ async function loadAssignedTasks(){
         const todosRef = firebase.firestore().collection('users').doc(member.id).collection('todos');
         const snapshot = await todosRef.where('assignee', '==', user.uid).get();
         
+        // 同時查詢對方的 trash，看看有沒有被刪除的
+        const trashRef = firebase.firestore().collection('users').doc(member.id).collection('trash');
+        const trashSnapshot = await trashRef.where('assignee', '==', user.uid).get();
+        const trashedIds = new Set();
+        trashSnapshot.forEach(doc => trashedIds.add(doc.id));
+        
         // 收集所有指派給我的有效任務 ID
         const remoteIds = new Set();
         snapshot.forEach(doc => {
           const task = {id: doc.id, ...doc.data()};
+          // 跳過已被對方垃圾桶刪除的
+          if(trashedIds.has(task.id)) return;
           remoteIds.add(task.id);
-          // 檢查是否已存在
-          if(!DB.todos.find(t => t.id === task.id)){
+          // 檢查是否已存在，若存在則更新（同步最新狀態）
+          const existing = DB.todos.find(t => t.id === task.id);
+          if(!existing){
             DB.todos.push(task);
+          } else {
+            // 更新本地任務的狀態（對方可能改了）
+            Object.assign(existing, task);
           }
         });
         
@@ -140,7 +159,44 @@ async function loadAssignedTasks(){
   }
 }
 
-function renderTodoRow(t){
+// 指派人載入「我指派給別人的任務」的最新狀態
+async function loadMyAssignedTasks(){
+  const user = auth.currentUser;
+  if(!user || state.isGuest) return;
+  if(!Array.isArray(DB.todos)) DB.todos = [];
+  
+  try {
+    // 找出我指派給別人但還在 DB.todos 裡的任務
+    const myAssigned = DB.todos.filter(t => t.assignedBy === user.uid && t.assignee && t.assignee !== user.uid);
+    
+    for(const t of myAssigned){
+      try {
+        // 從被指派人的 subcollection 讀取最新狀態
+        const assigneeTodosRef = firebase.firestore().collection('users').doc(t.assignee).collection('todos');
+        const doc = await assigneeTodosRef.doc(t.id).get();
+        if(doc.exists){
+          const remoteData = doc.data();
+          // 更新本地的 status（對方可能改了完成狀態）
+          t.status = remoteData.status;
+          t.title = remoteData.title || t.title;
+          t.date = remoteData.date || t.date;
+          t.note = remoteData.note || t.note;
+        }
+        // 如果對方 subcollection 沒有了（代表被刪除了）
+        if(!doc.exists){
+          // 從本地也移除
+          DB.todos = DB.todos.filter(x => x.id !== t.id);
+        }
+      } catch(e){
+        // 可能無權限，跳過
+      }
+    }
+    
+    persist();
+  } catch(error) {
+    console.error('載入我指派的任務失敗:', error);
+  }
+}
   const overdue = t.date && t.date < todayStr() && t.status!=='done';
   const assignee = memberById(t.assignee);
   const assignedBy = t.assignedBy ? memberById(t.assignedBy) : null;
@@ -364,7 +420,7 @@ function viewTrash(){
     <div class="page-sub">已刪除的任務會在這裡保留 30 天</div>
     ${items.length ? `
       <div style="margin-bottom:14px;">
-        <button class="btn btn-danger btn-sm" onclick="emptyTrash()">
+        <button class="btn btn-danger btn-sm" onclick="emptyTrash()" style="margin-bottom:12px;">
           <span class="icon">${getIcon('trash')}</span>
           清空垃圾桶
         </button>
@@ -382,10 +438,10 @@ function viewTrash(){
               <span style="font-size:11px;color:var(--ink-faint);">刪除於 ${t.deletedAt ? new Date(t.deletedAt).toLocaleDateString('zh-TW') : ''}</span>
             </div>
           </div>
-          <button class="btn btn-sm" onclick="restoreFromTrash('${t.id}')" style="flex-shrink:0;white-space:nowrap;">
+          <button class="btn btn-sm" onclick="restoreFromTrash('${escapeHTML(t.id)}')" style="flex-shrink:0;white-space:nowrap;">
             ↩ 還原
           </button>
-          <button class="btn btn-sm btn-danger" onclick="permanentDeleteFromTrash('${t.id}')" style="flex-shrink:0;white-space:nowrap;margin-left:4px;">
+          <button class="btn btn-sm btn-danger" onclick="permanentDeleteFromTrash('${escapeHTML(t.id)}')" style="flex-shrink:0;white-space:nowrap;margin-left:4px;">
             ✕ 刪除
           </button>
         </div>`;
@@ -430,7 +486,15 @@ function permanentDeleteFromTrash(id){
 }
 
 function confirmPermanentDelete(id){
+  if(!id || !Array.isArray(DB.trash)) { closeModal(); return; }
+  const before = DB.trash.length;
   DB.trash = DB.trash.filter(x=>x.id!==id);
+  if(DB.trash.length === before){
+    // 沒找到，可能已被移除
+    closeModal();
+    render();
+    return;
+  }
   persist();
   closeModal();
   render();
@@ -472,6 +536,7 @@ function viewTodos(){
   setTimeout(() => {
     initIcons();
     loadAssignedTasks();
+    loadMyAssignedTasks();
   }, 10);
   
   return `

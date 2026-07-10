@@ -70,9 +70,9 @@ function renderWFElement(el){
   
   if(el.shape==='hline'){
     return `<div class="wf-el ${isSelected?'wf-selected':''}" id="wfel-${el.id}" data-id="${el.id}" style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:6px;${wfShapeStyle(el)};cursor:move;" onclick="event.stopPropagation();selectWFElement('${el.id}')">
-      <div class="del" style="${delStyle}" onmousedown="event.stopPropagation()" onclick="deleteWFElement('${el.id}')"><span class="icon" style="width:10px;height:10px;">${getIcon('x')}</span></div>
+      <div class="del" style="${delStyle} top:-18px; right:auto; left:50%; transform:translateX(-50%);" onmousedown="event.stopPropagation()" onclick="deleteWFElement('${el.id}')"><span class="icon" style="width:10px;height:10px;">${getIcon('x')}</span></div>
       <div class="resize-line" style="${controlStyle}" onmousedown="event.stopPropagation();startWFResize(event,'${el.id}','hline')"></div>
-      <div class="rotate" style="${controlStyle}" onmousedown="event.stopPropagation();startWFRotate(event,'${el.id}')"><span class="icon" style="width:10px;height:10px;">${getIcon('refreshCw')}</span></div>
+      <div class="rotate" style="${controlStyle} left:auto; right:-16px; top:-4px;" onmousedown="event.stopPropagation();startWFRotate(event,'${el.id}')"><span class="icon" style="width:10px;height:10px;">${getIcon('refreshCw')}</span></div>
     </div>`;
   }
   if(el.shape==='wline'){

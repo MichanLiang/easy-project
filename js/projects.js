@@ -14,10 +14,6 @@ function viewProjects(){
       </div>
       <div class="status-col-body">
         ${items.map(p=>renderProjectCard(p)).join('') }
-        ${st==='構想' ? `<div class="addcard" style="min-height:90px" onclick="openNewProjectModal()">
-          <span class="icon">${getIcon('plus')}</span>
-          新增專案
-        </div>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -25,7 +21,13 @@ function viewProjects(){
   setTimeout(initIcons, 10);
   
   return `
-    <div class="page-title">專案管理</div>
+    <div class="page-title" style="justify-content:space-between;align-items:center">
+      <span>專案管理</span>
+      <button class="btn btn-primary btn-sm" onclick="openNewProjectModal()">
+        <span class="icon">${getIcon('plus')}</span>
+        新增專案
+      </button>
+    </div>
     <div class="page-sub">建立與追蹤所有個人與團隊專案，依進度分類一目瞭然</div>
     <div class="status-cols">${cols}</div>
   `;

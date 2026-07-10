@@ -1,6 +1,6 @@
 /* ================= Router state ---------------- */
 const state = {
-  route: 'projects',   // projects | project | calendar | todos | chat | settings | backlog | meetings
+  route: 'projects',   // projects | project | calendar | todos | chat | settings | backlog | meetings | trash
   projectId: null,
   docId: null,
   sidebarCollapsed: false,

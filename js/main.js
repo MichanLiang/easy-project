@@ -29,6 +29,7 @@ function render(){
     case 'meetings': viewHTML = viewMeetingsGlobal(); break;
     case 'chat': viewHTML = viewChat(); break;
     case 'settings': viewHTML = viewSettings(); break;
+    case 'trash': viewHTML = viewTrash(); break;
     default: viewHTML = viewProjects();
   }
   app.innerHTML = `

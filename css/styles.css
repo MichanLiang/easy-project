@@ -967,7 +967,9 @@ a:hover{color:var(--accent-dark);}
   min-width:150px;
   position:sticky;
   left:0;
-  background:var(--panel);
+  background:var(--bg-page);
+  z-index:2;
+  border-right:1px solid var(--line-light);
 }
 
 .gantt-bar{
@@ -1500,6 +1502,18 @@ svg.edges{
 .wf-el .resize-line{
   position:absolute;
   right:-5px;
+  top:50%;
+  transform:translateY(-50%);
+  width:12px;
+  height:12px;
+  background:var(--ink-soft);
+  border-radius:3px;
+  cursor:ew-resize;
+}
+
+.wf-el .resize-line-left{
+  position:absolute;
+  left:-5px;
   top:50%;
   transform:translateY(-50%);
   width:12px;

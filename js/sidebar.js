@@ -6,6 +6,7 @@ const NAV_ITEMS = [
   {key:'backlog', label:'需求池', icon:'lightbulb'},
   {key:'meetings', label:'會議記錄', icon:'fileText'},
   {key:'chat', label:'聊天室', icon:'messageCircle'},
+  {key:'trash', label:'垃圾桶', icon:'trash2'},
 ];
 
 function renderSidebar(){

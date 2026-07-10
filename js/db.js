@@ -7,7 +7,8 @@ let DB={
   backlogItems:[],
   meetings:[],
   chats:{},
-  todos:[]
+  todos:[],
+  trash:[]
 };
 
 // 當前用戶 ID
@@ -42,6 +43,7 @@ async function loadUserDataFromFirestore(){
       DB.todos = data.todos || [];
       DB.chats = data.chats || {};
       DB.members = data.members || [];
+      DB.trash = data.trash || [];
     } else {
       // 新用戶，初始化空白資料
       DB.projects = [];
@@ -50,6 +52,7 @@ async function loadUserDataFromFirestore(){
       DB.todos = [];
       DB.chats = {};
       DB.members = [];
+      DB.trash = [];
       await saveUserDataToFirestore();
     }
     
@@ -73,6 +76,7 @@ async function saveUserDataToFirestore(){
       todos: DB.todos,
       chats: DB.chats,
       members: DB.members,
+      trash: DB.trash,
       email: user.email,
       displayName: user.displayName,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -169,6 +173,7 @@ function initDB(){
       if(!DB.todos) DB.todos = [];
       if(!DB.projects) DB.projects = [];
       if(!DB.members) DB.members = [];
+      if(!DB.trash) DB.trash = [];
     }catch(e){}
   }
 }

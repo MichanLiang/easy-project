@@ -15,13 +15,20 @@ function openTodoColorSettings(){
     return '<div class="field-row" style="margin-bottom:8px;align-items:flex-end;">'
       + '<div class="field" style="flex:1;"><label>名稱</label><input type="text" id="colorName'+i+'" value="'+escapeHTML(c.name)+'" maxlength="6"></div>'
       + '<div class="field" style="width:80px;"><label>顏色</label><input type="color" id="colorVal'+i+'" value="'+c.color+'" style="width:100%;height:32px;"></div>'
-      + '<button class="btn btn-sm btn-danger" onclick="removeTodoColor('+i+')" style="margin-bottom:2px;"><span class="icon" style="width:14px;height:14px;">'+getIcon('trash2')+'</span></button>'
+      + '<button class="btn btn-sm btn-danger" onclick="removeTodoColor('+i+')" style="margin-bottom:2px;height:32px;min-width:32px;display:inline-flex;align-items:center;justify-content:center;" title="刪除此標籤"><span class="icon" style="width:14px;height:14px;">'+getIcon('trash2')+'</span></button>'
       + '</div>';
   }).join('');
-  openModal('<div class="modal-head"><h3>編輯顏色標籤</h3></div><div class="modal-body">'+rows+'<button class="btn btn-sm" onclick="addTodoColor()" style="margin-top:4px;"><span class="icon" style="width:14px;height:14px;">'+getIcon('plus')+'</span> 新增顏色</button></div><div class="modal-foot"><button class="btn btn-cancel" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="saveTodoColorSettings()">儲存</button></div>');
+  openModal('<div class="modal-head"><h3>編輯顏色標籤</h3></div><div class="modal-body">'
+    + rows
+    + '<div style="display:flex;gap:8px;margin-top:12px;">'
+    + '<button class="btn btn-sm" onclick="addTodoColor()"><span class="icon" style="width:14px;height:14px;">'+getIcon('plus')+'</span> 新增</button>'
+    + '<button class="btn btn-sm" onclick="resetTodoColors()" style="margin-left:auto;"><span class="icon" style="width:14px;height:14px;">'+getIcon('rotateCcw')+'</span> 回到預設</button>'
+    + '</div></div>'
+    + '<div class="modal-foot"><button class="btn btn-cancel" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="saveTodoColorSettings()">儲存</button></div>');
 }
 function addTodoColor(){ TODO_COLORS.push({name:'新標籤',color:'#B8A9C9'}); saveTodoColors(); openTodoColorSettings(); }
 function removeTodoColor(i){ TODO_COLORS.splice(i,1); saveTodoColors(); openTodoColorSettings(); }
+function resetTodoColors(){ TODO_COLORS = DEFAULT_TODO_COLORS.slice(); saveTodoColors(); openTodoColorSettings(); toast('已恢復預設顏色'); }
 function saveTodoColorSettings(){ for(var i=0;i<TODO_COLORS.length;i++){ var n=document.getElementById('colorName'+i), v=document.getElementById('colorVal'+i); if(n) TODO_COLORS[i].name=n.value.trim()||'未命名'; if(v) TODO_COLORS[i].color=v.value; } saveTodoColors(); closeModal(); render(); toast('顏色標籤已更新'); }
 
 // Firestore 同步任務
@@ -196,7 +203,7 @@ function confirmDeleteTodo(id){
   openModal(`
     <div class="modal-head"><h3>確認刪除</h3></div>
     <div class="modal-body">
-      <p>確定要刪除「${escapeHTML(t.title)}」嗎？</p>
+      <p>確定要刪除「${escapeHTML(t.title)}」嗎？任務會移到垃圾桶，可以之後還原。</p>
     </div>
     <div class="modal-foot">
       <button class="btn" onclick="closeModal()">取消</button>
@@ -243,45 +250,176 @@ async function syncTaskToAssigner(task){
   }
 }
 
-// 刪除任務並同步到指派人
+// 刪除任務 → 移到垃圾桶，並同步到指派人
 async function deleteTodoItem(id){
   const t = DB.todos.find(x=>x.id===id);
+  if(!t) return;
   
-  // 如果是別人指派的任務，從對方那邊也刪除
-  if(t && t.assignedBy && t.assignedBy !== DB.currentUser){
-    await deleteTaskFromAssigner(t);
+  // 移到垃圾桶（帶時間戳）
+  const trashed = {...t, deletedAt: new Date().toISOString(), deletedBy: DB.currentUser};
+  if(!Array.isArray(DB.trash)) DB.trash = [];
+  DB.trash.push(trashed);
+  
+  // 從本地移除
+  DB.todos = DB.todos.filter(x=>x.id!==id);
+  
+  // 同步到指派人：也在對方那邊移到垃圾桶
+  if(t.assignedBy && t.assignedBy !== DB.currentUser){
+    await trashTaskForAssigner(t);
+  }
+  // 同步到被指派人：如果我是指派人，對方也要移到垃圾桶
+  if(t.assignee && t.assignee !== DB.currentUser){
+    await trashTaskForAssignee(t);
   }
   
-  DB.todos = DB.todos.filter(t=>t.id!==id);
   persist(); 
   syncTodosToFirestore();
   closeModal(); 
   render();
 }
 
-// 從指派人的 Firestore 刪除任務
-async function deleteTaskFromAssigner(task){
+// 從指派人那邊也移到垃圾桶
+async function trashTaskForAssigner(task){
   const user = auth.currentUser;
   if(!user || state.isGuest) return;
-  
   try {
-    // 1. 刪除指派人 subcollection 中的任務
+    // 寫入指派人的 trash 子集合
+    const trashRef = firebase.firestore().collection('users').doc(task.assignedBy).collection('trash');
+    await trashRef.doc(task.id).set({...task, deletedAt: firebase.firestore.FieldValue.serverTimestamp(), deletedBy: user.uid});
+    // 從指派人的 todos subcollection 刪除
     const todosRef = firebase.firestore().collection('users').doc(task.assignedBy).collection('todos');
     await todosRef.doc(task.id).delete().catch(()=>{});
-    
-    // 2. 從指派人主文檔的 todos 陣列中移除
+    // 從指派人的主文檔 todos 陣列移除
     const assignerRef = firebase.firestore().collection('users').doc(task.assignedBy);
     const assignerDoc = await assignerRef.get();
-    
     if(assignerDoc.exists){
-      const assignerData = assignerDoc.data();
-      const todos = assignerData.todos || [];
-      const newTodos = todos.filter(t => t.id !== task.id);
-      await assignerRef.update({ todos: newTodos });
+      const todos = (assignerDoc.data().todos || []).filter(t => t.id !== task.id);
+      const trash = assignerDoc.data().trash || [];
+      trash.push({...task, deletedAt: new Date().toISOString(), deletedBy: user.uid});
+      await assignerRef.update({ todos, trash });
     }
-  } catch (error) {
-    console.error('從指派人刪除任務失敗:', error);
-  }
+  } catch(e){ console.error('trashTaskForAssigner:', e); }
+}
+
+// 從被指派人那邊也移到垃圾桶
+async function trashTaskForAssignee(task){
+  const user = auth.currentUser;
+  if(!user || state.isGuest) return;
+  try {
+    const trashRef = firebase.firestore().collection('users').doc(task.assignee).collection('trash');
+    await trashRef.doc(task.id).set({...task, deletedAt: firebase.firestore.FieldValue.serverTimestamp(), deletedBy: user.uid});
+    const todosRef = firebase.firestore().collection('users').doc(task.assignee).collection('todos');
+    await todosRef.doc(task.id).delete().catch(()=>{});
+    const assigneeRef = firebase.firestore().collection('users').doc(task.assignee);
+    const assigneeDoc = await assigneeRef.get();
+    if(assigneeDoc.exists){
+      const todos = (assigneeDoc.data().todos || []).filter(t => t.id !== task.id);
+      const trash = assigneeDoc.data().trash || [];
+      trash.push({...task, deletedAt: new Date().toISOString(), deletedBy: user.uid});
+      await assigneeRef.update({ todos, trash });
+    }
+  } catch(e){ console.error('trashTaskForAssignee:', e); }
+}
+
+function viewTrash(){
+  if(!Array.isArray(DB.trash)) DB.trash = [];
+  const items = DB.trash.slice().sort((a,b)=>(b.deletedAt||'').localeCompare(a.deletedAt||''));
+  setTimeout(initIcons, 10);
+  return `
+    <div class="page-title">垃圾桶</div>
+    <div class="page-sub">已刪除的任務會在這裡保留 30 天</div>
+    ${items.length ? `
+      <div style="margin-bottom:14px;">
+        <button class="btn btn-danger btn-sm" onclick="emptyTrash()">
+          <span class="icon">${getIcon('trash')}</span>
+          清空垃圾桶
+        </button>
+      </div>
+      <div class="card">${items.map(t=>{
+        const assignee = memberById(t.assignee);
+        const assignedBy = t.assignedBy ? memberById(t.assignedBy) : null;
+        return `<div class="todo-row" style="opacity:0.7;">
+          <div class="todo-main" style="cursor:default;">
+            <div class="todo-title">${escapeHTML(t.title)}</div>
+            <div class="todo-sub">
+              ${t.date?`<span style="display:flex;align-items:center;gap:4px;"><span class="icon" style="width:12px;height:12px;">${getIcon('clock')}</span>${t.date}</span>`:''}
+              ${assignee?`<span style="display:flex;align-items:center;gap:4px;">${avatarHTML(t.assignee,16)} ${escapeHTML(assignee.name)}</span>`:''}
+              ${assignedBy?`<span style="font-size:11px;color:var(--ink-faint);">由 ${escapeHTML(assignedBy.name)} 指派</span>`:''}
+              <span style="font-size:11px;color:var(--ink-faint);">刪除於 ${t.deletedAt ? new Date(t.deletedAt).toLocaleDateString('zh-TW') : ''}</span>
+            </div>
+          </div>
+          <button class="btn btn-sm" onclick="restoreFromTrash('${t.id}')" style="flex-shrink:0;" title="還原">
+            <span class="icon" style="width:14px;height:14px;">${getIcon('rotateCcw')}</span>
+          </button>
+          <button class="btn btn-sm btn-danger" onclick="permanentDeleteFromTrash('${t.id}')" style="flex-shrink:0;" title="永久刪除">
+            <span class="icon" style="width:14px;height:14px;">${getIcon('trash2')}</span>
+          </button>
+        </div>`;
+      }).join('')}</div>
+    ` : `<div class="card"><div class="empty">垃圾桶是空的</div></div>`}
+  `;
+}
+
+function restoreFromTrash(id){
+  const t = DB.trash.find(x=>x.id===id);
+  if(!t) return;
+  // 從垃圾桶移除
+  DB.trash = DB.trash.filter(x=>x.id!==id);
+  // 還原到 todos（移除 deletedAt 欄位）
+  const restored = {...t};
+  delete restored.deletedAt;
+  delete restored.deletedBy;
+  DB.todos.push(restored);
+  persist();
+  syncTodosToFirestore();
+  render();
+  toast('已還原任務');
+}
+
+function permanentDeleteFromTrash(id){
+  openModal(`
+    <div class="modal-head"><h3>確認永久刪除</h3></div>
+    <div class="modal-body"><p>此操作無法復原，確定要永久刪除嗎？</p></div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal()">取消</button>
+      <button class="btn btn-danger" onclick="confirmPermanentDelete('${id}')">
+        <span class="icon">${getIcon('trash')}</span>
+        永久刪除
+      </button>
+    </div>
+  `);
+  setTimeout(initIcons, 10);
+}
+
+function confirmPermanentDelete(id){
+  DB.trash = DB.trash.filter(x=>x.id!==id);
+  persist();
+  closeModal();
+  render();
+  toast('已永久刪除');
+}
+
+function emptyTrash(){
+  openModal(`
+    <div class="modal-head"><h3>確認清空</h3></div>
+    <div class="modal-body"><p>確定要清空垃圾桶嗎？所有已刪除的任務都將無法復原。</p></div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal()">取消</button>
+      <button class="btn btn-danger" onclick="confirmEmptyTrash()">
+        <span class="icon">${getIcon('trash')}</span>
+        清空
+      </button>
+    </div>
+  `);
+  setTimeout(initIcons, 10);
+}
+
+function confirmEmptyTrash(){
+  DB.trash = [];
+  persist();
+  closeModal();
+  render();
+  toast('垃圾桶已清空');
 }
 
 function viewTodos(){

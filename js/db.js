@@ -60,6 +60,7 @@ async function loadUserDataFromFirestore(){
     }
     
     persist();
+    setupRealtimeListeners();
   } catch (error) {
     console.error('載入用戶資料失敗:', error);
   }
@@ -92,11 +93,111 @@ async function saveUserDataToFirestore(){
 
 // 自動同步到 Firestore
 let syncTimeout = null;
+let isLocalWrite = false;
+let memberUnsubscibes = [];
+
 function autoSync(){
   if(syncTimeout) clearTimeout(syncTimeout);
   syncTimeout = setTimeout(async () => {
+    isLocalWrite = true;
     await saveUserDataToFirestore();
+    setTimeout(()=>{ isLocalWrite = false; }, 500);
   }, 1000); // 1秒後自動同步
+}
+
+// ===== 即時同步：监听自己和成員的文件 =====
+function setupRealtimeListeners(){
+  const user = auth.currentUser;
+  if(!user || state.isGuest) return;
+
+  // 1. 監聽自己的文件
+  firebase.firestore().collection('users').doc(user.uid)
+    .onSnapshot({ includeMetadataChanges: true }, (snap) => {
+      if(isLocalWrite || snap.metadata.fromCache) return;
+      const data = snap.data();
+      if(!data) return;
+
+      // 合併專案（用 updatedAt 比較，防止覆蓋較新的本地資料）
+      if(data.projects){
+        const incoming = data.projects;
+        const local = DB.projects;
+        const merged = [];
+        const localMap = {};
+        local.forEach(p => { localMap[p.id] = p; });
+
+        for(const ip of incoming){
+          const lp = localMap[ip.id];
+          if(!lp){
+            // 新專案，直接加入
+            merged.push(ip);
+          } else {
+            // 比較 updatedAt 決定用哪個版本
+            const localTime = new Date(lp.updatedAt||0).getTime();
+            const incomingTime = new Date(ip.updatedAt||0).getTime();
+            merged.push(incomingTime > localTime ? ip : lp);
+          }
+        }
+        // 檢查本地有但遠端沒有的專案（可能是其他人刪的）
+        DB.projects = merged;
+      }
+
+      if(data.todos) DB.todos = data.todos;
+      if(data.meetings) DB.meetings = data.meetings;
+      if(data.backlogItems) DB.backlogItems = data.backlogItems;
+      if(data.trash) DB.trash = data.trash;
+      if(data.dismissedBacklogs) DB.dismissedBacklogs = data.dismissedBacklogs;
+      if(data.members){
+        const prevMembers = JSON.stringify(DB.members.map(m=>({id:m.id,status:m.status})));
+        DB.members = data.members;
+        const newMembers = JSON.stringify(DB.members.map(m=>({id:m.id,status:m.status})));
+        if(prevMembers !== newMembers) setupMemberListeners();
+      }
+
+      persist();
+      render();
+    });
+
+  // 2. 監聽已接受的成員文件（同步共用專案）
+  setupMemberListeners();
+}
+
+function setupMemberListeners(){
+  // 取消舊的監聽
+  memberUnsubscibes.forEach(unsub => unsub());
+  memberUnsubscibes = [];
+
+  const user = auth.currentUser;
+  if(!user || state.isGuest) return;
+
+  const acceptedMembers = DB.members.filter(m => m.status === 'accepted' && m.id);
+  for(const member of acceptedMembers){
+    const unsub = firebase.firestore().collection('users').doc(member.id)
+      .onSnapshot({ includeMetadataChanges: true }, (snap) => {
+        if(isLocalWrite || snap.metadata.fromCache) return;
+        const data = snap.data();
+        if(!data || !data.projects) return;
+
+        // 只合併這個成員擁有的專案
+        const myIds = new Set(DB.projects.map(p => p.id));
+        for(const mp of data.projects){
+          if(myIds.has(mp.id)){
+            // 已存在，檢查是否更新
+            const local = DB.projects.find(p => p.id === mp.id);
+            const localTime = new Date(local?.updatedAt||0).getTime();
+            const incomingTime = new Date(mp.updatedAt||0).getTime();
+            if(incomingTime > localTime){
+              Object.assign(local, mp);
+            }
+          } else {
+            // 新專案，加入
+            DB.projects.push(mp);
+          }
+        }
+        persist();
+        render();
+      });
+    memberUnsubscibes.push(unsub);
+  }
 }
 
 // 從團隊同步成員列表

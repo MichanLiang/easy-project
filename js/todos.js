@@ -552,9 +552,15 @@ function viewTodos(){
       </span>`).join('')}
       <button class="btn-ghost" onclick="openTodoColorSettings()" style="font-size:11px;padding:2px 6px;color:var(--ink-faint);">✏️ 編輯</button>
     </div>
-    <div class="section-title">
-      <span class="dot" style="background:var(--accent)"></span>
-      收件匣 ${inbox.length?`<span style="color:var(--ink-faint);font-weight:500">(${inbox.length})</span>`:''}
+    <div class="section-title" style="justify-content:space-between">
+      <span style="display:flex;align-items:center;gap:8px">
+        <span class="dot" style="background:var(--accent)"></span>
+        收件匣 ${inbox.length?`<span style="color:var(--ink-faint);font-weight:500">(${inbox.length})</span>`:''}
+      </span>
+      <button class="btn btn-primary btn-sm" onclick="openTodoModal()">
+        <span class="icon">${getIcon('plus')}</span>
+        新增任務
+      </button>
     </div>
     <div class="card">${inbox.length? inbox.map(renderTodoRow).join('') : `<div class="empty">目前沒有人指派任務給你</div>`}</div>
     <div class="section-title">
@@ -562,15 +568,11 @@ function viewTodos(){
       指派 ${assigned.length?`<span style="color:var(--ink-faint);font-weight:500">(${assigned.length})</span>`:''}
     </div>
     <div class="card">${assigned.length? assigned.map(renderTodoRow).join('') : `<div class="empty">你還沒有指派任務給其他人</div>`}</div>
-    <div class="section-title" style="justify-content:space-between">
+    <div class="section-title">
       <span style="display:flex;align-items:center;gap:8px">
         <span class="dot" style="background:var(--teal)"></span>
         我的任務
       </span>
-      <button class="btn btn-primary btn-sm" onclick="openTodoModal()">
-        <span class="icon">${getIcon('plus')}</span>
-        新增任務
-      </button>
     </div>
     <div class="card">${mine.length? mine.map(renderTodoRow).join('') : `<div class="empty">還沒有任務，點右上角新增一個吧</div>`}</div>
   `;

@@ -76,9 +76,9 @@ function renderWFElement(el){
     </div>`;
   }
   if(el.shape==='wline'){
-    const cv = el.curve || 0.5;
-    const cp1x = el.w * 0.25, cp1y = el.h * (1 - cv);
-    const cp2x = el.w * 0.75, cp2y = el.h * cv;
+    const cp1y = el.cp1y != null ? el.cp1y : el.h * 0.2;
+    const cp2y = el.cp2y != null ? el.cp2y : el.h * 0.8;
+    const cp1x = el.w * 0.33, cp2x = el.w * 0.67;
     return `<div class="wf-el ${isSelected?'wf-selected':''}" id="wfel-${el.id}" data-id="${el.id}" style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:none;background:transparent;cursor:move;" onclick="event.stopPropagation();selectWFElement('${el.id}')">
       <svg class="wline-svg" width="100%" height="100%" style="overflow:visible;"><path d="M0,${el.h/2} C${cp1x},${cp1y} ${cp2x},${cp2y} ${el.w},${el.h/2}" fill="none" stroke="${el.lineColor||'#424242'}" stroke-width="3"/></svg>
       ${isSelected ? `<div class="curve-handle" data-cp="cp1" style="left:${cp1x-6}px;top:${cp1y-6}px;" onmousedown="event.stopPropagation();startWFCurveDrag(event,'${el.id}','cp1')"></div>
@@ -185,16 +185,17 @@ function initWireframeBoard(d){
         const h = Math.max(20, wfState.startH + dy);
         el.style.width=w+'px'; el.style.height=h+'px';
         item.w = w; item.h = h;
-        // Update SVG path and curve handles inline
-        const cv = item.curve || 0.5;
-        const cp1x = w*0.25, cp1y = h*(1-cv);
-        const cp2x = w*0.75, cp2y = h*cv;
+        // Scale cp1y/cp2y proportionally
+        const ratio = h / wfState.startH;
+        item.cp1y = Math.round(wfState.startCp1y * ratio);
+        item.cp2y = Math.round(wfState.startCp2y * ratio);
+        const cp1x = w*0.33, cp2x = w*0.67;
         const svg = el.querySelector('.wline-svg');
-        if(svg) svg.querySelector('path').setAttribute('d', `M0,${h/2} C${cp1x},${cp1y} ${cp2x},${cp2y} ${w},${h/2}`);
+        if(svg) svg.querySelector('path').setAttribute('d', `M0,${h/2} C${cp1x},${item.cp1y} ${cp2x},${item.cp2y} ${w},${h/2}`);
         const ch1 = el.querySelector('[data-cp="cp1"]');
         const ch2 = el.querySelector('[data-cp="cp2"]');
-        if(ch1){ ch1.style.left=(cp1x-6)+'px'; ch1.style.top=(cp1y-6)+'px'; }
-        if(ch2){ ch2.style.left=(cp2x-6)+'px'; ch2.style.top=(cp2y-6)+'px'; }
+        if(ch1){ ch1.style.left=(cp1x-6)+'px'; ch1.style.top=(item.cp1y-6)+'px'; }
+        if(ch2){ ch2.style.left=(cp2x-6)+'px'; ch2.style.top=(item.cp2y-6)+'px'; }
       } else {
         const w = Math.max(30, wfState.startW + dx);
         const h = Math.max(24, wfState.startH + dy);
@@ -213,18 +214,19 @@ function initWireframeBoard(d){
     }
     else if(wfState.mode==='curveDrag'){
       const my = e.clientY - rect.top;
-      const relY = 1 - (my - item.y) / Math.max(1, item.h);
-      item.curve = Math.max(0.05, Math.min(0.95, relY));
-      const cv = item.curve;
-      const w = item.w, h = item.h;
-      const cp1x = w*0.25, cp1y = h*(1-cv);
-      const cp2x = w*0.75, cp2y = h*cv;
+      const newY = Math.max(0, Math.min(item.h, my - item.y));
+      if(wfState.cp==='cp1'){
+        item.cp1y = newY;
+      } else {
+        item.cp2y = newY;
+      }
+      const cp1x = item.w*0.33, cp2x = item.w*0.67;
       const svg = el.querySelector('.wline-svg');
-      if(svg) svg.querySelector('path').setAttribute('d', `M0,${h/2} C${cp1x},${cp1y} ${cp2x},${cp2y} ${w},${h/2}`);
+      if(svg) svg.querySelector('path').setAttribute('d', 'M0,'+item.h/2+' C'+cp1x+','+item.cp1y+' '+cp2x+','+item.cp2y+' '+item.w+','+item.h/2);
       const ch1 = el.querySelector('[data-cp="cp1"]');
       const ch2 = el.querySelector('[data-cp="cp2"]');
-      if(ch1){ ch1.style.left=(cp1x-6)+'px'; ch1.style.top=(cp1y-6)+'px'; }
-      if(ch2){ ch2.style.left=(cp2x-6)+'px'; ch2.style.top=(cp2y-6)+'px'; }
+      if(ch1){ ch1.style.left=(cp1x-6)+'px'; ch1.style.top=(item.cp1y-6)+'px'; }
+      if(ch2){ ch2.style.left=(cp2x-6)+'px'; ch2.style.top=(item.cp2y-6)+'px'; }
     }
   };
   
@@ -241,6 +243,9 @@ function initWireframeBoard(d){
 
 function startWFResize(e,id,shapeType){
   const el = document.getElementById('wfel-'+id);
+  const proj = DB.projects.find(x2=>x2.id===wfState.pid);
+  const doc = proj.docs.find(x2=>x2.id===wfState.did);
+  const item = doc.elements.find(it=>it.id===id);
   wfState.mode = 'resize';
   wfState.elId = id;
   wfState.shapeType = shapeType;
@@ -248,6 +253,10 @@ function startWFResize(e,id,shapeType){
   wfState.startY = e.clientY;
   wfState.startW = el.offsetWidth;
   wfState.startH = el.offsetHeight;
+  if(shapeType==='wline' && item){
+    wfState.startCp1y = item.cp1y != null ? item.cp1y : item.h*0.2;
+    wfState.startCp2y = item.cp2y != null ? item.cp2y : item.h*0.8;
+  }
 }
 
 function startWFRotate(e,id){
@@ -265,7 +274,7 @@ function addWFElement(pId,dId,shape){
   const p=DB.projects.find(x=>x.id===pId); const d=p.docs.find(x=>x.id===dId);
   const defaults = {rect:{w:160,h:100,text:'區塊'}, square:{w:100,h:100,text:'方塊'}, circle:{w:90,h:90,text:'圖示'}, button:{w:120,h:40,text:'按鈕文字'}, text:{w:150,h:26,text:'文字內容'}, hline:{w:200,h:6,text:''}, wline:{w:200,h:80,text:''}};
   const def = defaults[shape];
-  d.elements.push({id:uid(), shape, x:60+Math.random()*300, y:60+Math.random()*200, w:def.w, h:def.h, text:def.text, color:'#F8F9FC', rotation:0, curve:0.5});
+  d.elements.push({id:uid(), shape, x:60+Math.random()*300, y:60+Math.random()*200, w:def.w, h:def.h, text:def.text, color:'#F8F9FC', rotation:0, cp1y:def.h*0.2, cp2y:def.h*0.8});
   persist(); render();
 }
 

@@ -12,19 +12,19 @@ let TODO_COLORS = JSON.parse(localStorage.getItem('todo_custom_colors') || 'null
 function saveTodoColors(){ localStorage.setItem('todo_custom_colors', JSON.stringify(TODO_COLORS)); }
 function openTodoColorSettings(){
   var rows = TODO_COLORS.map(function(c,i){
-    return '<div class="field-row" style="margin-bottom:8px;align-items:flex-end;">'
-      + '<div class="field" style="flex:1;"><label>名稱</label><input type="text" id="colorName'+i+'" value="'+escapeHTML(c.name)+'" maxlength="6"></div>'
-      + '<div class="field" style="width:80px;"><label>顏色</label><input type="color" id="colorVal'+i+'" value="'+c.color+'" style="width:100%;height:32px;"></div>'
-      + '<button class="btn btn-sm btn-danger" onclick="removeTodoColor('+i+')" style="margin-bottom:2px;height:32px;min-width:32px;display:inline-flex;align-items:center;justify-content:center;" title="刪除此標籤"><span class="icon" style="width:14px;height:14px;">'+getIcon('trash2')+'</span></button>'
+    return '<div class="field-row" style="margin-bottom:6px;align-items:center;">'
+      + '<input type="color" id="colorVal'+i+'" value="'+c.color+'" style="width:32px;height:28px;border:none;padding:0;cursor:pointer;border-radius:4px;">'
+      + '<input type="text" id="colorName'+i+'" value="'+escapeHTML(c.name)+'" maxlength="6" style="flex:1;margin:0 6px;padding:4px 8px;border:1px solid var(--line);border-radius:4px;font-size:13px;">'
+      + '<button class="btn-ghost btn-icon" onclick="removeTodoColor('+i+')" style="color:var(--rose);padding:4px;" title="刪除此標籤">✕</button>'
       + '</div>';
   }).join('');
-  openModal('<div class="modal-head"><h3>編輯顏色標籤</h3></div><div class="modal-body">'
+  openModal('<div class="modal-head"><h3>編輯顏色標籤</h3></div><div class="modal-body" style="padding:16px;">'
     + rows
-    + '<div style="display:flex;gap:8px;margin-top:12px;">'
-    + '<button class="btn btn-sm" onclick="addTodoColor()"><span class="icon" style="width:14px;height:14px;">'+getIcon('plus')+'</span> 新增</button>'
-    + '<button class="btn btn-sm" onclick="resetTodoColors()" style="margin-left:auto;"><span class="icon" style="width:14px;height:14px;">'+getIcon('rotateCcw')+'</span> 回到預設</button>'
+    + '<div style="display:flex;gap:8px;margin-top:10px;">'
+    + '<button class="btn btn-sm" onclick="addTodoColor()" style="font-size:12px;padding:4px 10px;">+ 新增</button>'
+    + '<button class="btn btn-sm" onclick="resetTodoColors()" style="font-size:12px;padding:4px 10px;margin-left:auto;">↩ 回到預設</button>'
     + '</div></div>'
-    + '<div class="modal-foot"><button class="btn btn-cancel" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="saveTodoColorSettings()">儲存</button></div>');
+    + '<div class="modal-foot"><button class="btn" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="saveTodoColorSettings()">儲存</button></div>');
 }
 function addTodoColor(){ TODO_COLORS.push({name:'新標籤',color:'#B8A9C9'}); saveTodoColors(); openTodoColorSettings(); }
 function removeTodoColor(i){ TODO_COLORS.splice(i,1); saveTodoColors(); openTodoColorSettings(); }
@@ -190,9 +190,12 @@ function toggleTodoDone(id){
   t.status = t.status==='done' ? 'pending' : 'done';
   persist(); 
   syncTodosToFirestore();
-  // 如果是別人指派的任務，同步更新對方的狀態
+  // 雙向同步：更新對方的狀態
   if(t.assignedBy && t.assignedBy !== DB.currentUser){
     syncTaskToAssigner(t);
+  }
+  if(t.assignee && t.assignee !== DB.currentUser){
+    syncTaskToAssignee(t);
   }
   render();
 }
@@ -216,22 +219,20 @@ function confirmDeleteTodo(id){
   setTimeout(initIcons, 10);
 }
 
-// 同步任務狀態到指派人那邊
+// 同步任務狀態到指派人那邊（完整同步）
 async function syncTaskToAssigner(task){
   const user = auth.currentUser;
   if(!user || state.isGuest) return;
   
   try {
-    // 更新指派人 Firestore 子集合中的任務狀態
+    // 1. 更新指派人 Firestore todos subcollection（完整任務資料）
     const todosRef = firebase.firestore().collection('users').doc(task.assignedBy).collection('todos');
-    const docRef = todosRef.doc(task.id);
-    const doc = await docRef.get();
+    await todosRef.doc(task.id).set({
+      ...task,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
     
-    if(doc.exists){
-      await docRef.update({ status: task.status });
-    }
-    
-    // 同時更新指派人主文檔的 todos 陣列（如果存在的話）
+    // 2. 更新指派人主文檔的 todos 陣列
     const assignerRef = firebase.firestore().collection('users').doc(task.assignedBy);
     const assignerDoc = await assignerRef.get();
     
@@ -241,12 +242,45 @@ async function syncTaskToAssigner(task){
       const taskIndex = todos.findIndex(t => t.id === task.id);
       
       if(taskIndex !== -1){
-        todos[taskIndex].status = task.status;
-        await assignerRef.update({ todos: todos });
+        todos[taskIndex] = {...task};
+        await assignerRef.update({ todos });
       }
     }
   } catch (error) {
     console.error('同步任務到指派人失敗:', error);
+  }
+}
+
+// 同步任務狀態到被指派人那邊
+async function syncTaskToAssignee(task){
+  const user = auth.currentUser;
+  if(!user || state.isGuest) return;
+  if(!task.assignee || task.assignee === user.uid) return;
+  
+  try {
+    // 1. 更新被指派人 Firestore todos subcollection
+    const todosRef = firebase.firestore().collection('users').doc(task.assignee).collection('todos');
+    await todosRef.doc(task.id).set({
+      ...task,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    
+    // 2. 更新被指派人主文檔的 todos 陣列
+    const assigneeRef = firebase.firestore().collection('users').doc(task.assignee);
+    const assigneeDoc = await assigneeRef.get();
+    
+    if(assigneeDoc.exists){
+      const assigneeData = assigneeDoc.data();
+      const todos = assigneeData.todos || [];
+      const taskIndex = todos.findIndex(t => t.id === task.id);
+      
+      if(taskIndex !== -1){
+        todos[taskIndex] = {...task};
+        await assigneeRef.update({ todos });
+      }
+    }
+  } catch (error) {
+    console.error('同步任務到被指派人失敗:', error);
   }
 }
 
@@ -348,11 +382,11 @@ function viewTrash(){
               <span style="font-size:11px;color:var(--ink-faint);">刪除於 ${t.deletedAt ? new Date(t.deletedAt).toLocaleDateString('zh-TW') : ''}</span>
             </div>
           </div>
-          <button class="btn btn-sm" onclick="restoreFromTrash('${t.id}')" style="flex-shrink:0;" title="還原">
-            <span class="icon" style="width:14px;height:14px;">${getIcon('rotateCcw')}</span>
+          <button class="btn btn-sm" onclick="restoreFromTrash('${t.id}')" style="flex-shrink:0;white-space:nowrap;">
+            ↩ 還原
           </button>
-          <button class="btn btn-sm btn-danger" onclick="permanentDeleteFromTrash('${t.id}')" style="flex-shrink:0;" title="永久刪除">
-            <span class="icon" style="width:14px;height:14px;">${getIcon('trash2')}</span>
+          <button class="btn btn-sm btn-danger" onclick="permanentDeleteFromTrash('${t.id}')" style="flex-shrink:0;white-space:nowrap;margin-left:4px;">
+            ✕ 刪除
           </button>
         </div>`;
       }).join('')}</div>
@@ -369,7 +403,11 @@ function restoreFromTrash(id){
   const restored = {...t};
   delete restored.deletedAt;
   delete restored.deletedBy;
-  DB.todos.push(restored);
+  if(!Array.isArray(DB.todos)) DB.todos = [];
+  // 避免重複
+  if(!DB.todos.find(x=>x.id===restored.id)){
+    DB.todos.push(restored);
+  }
   persist();
   syncTodosToFirestore();
   render();
@@ -439,16 +477,13 @@ function viewTodos(){
   return `
     <div class="page-title">待辦清單</div>
     <div class="page-sub">收件匣是別人指派給你的任務，指派是你分配給別人的任務，我的任務是你自己負責的</div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;">
-      <span style="font-size:12px;color:var(--ink-faint);line-height:26px;">顏色標籤：</span>
-      ${customColors.map(c=>`<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border-radius:12px;font-size:12px;background:${c.color}22;color:${c.color};font-weight:600;border:1px solid ${c.color}44;">
-        <span style="width:8px;height:8px;border-radius:50%;background:${c.color};"></span>
+    <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:16px;align-items:center;">
+      <span style="font-size:11px;color:var(--ink-faint);">標籤：</span>
+      ${customColors.map(c=>`<span style="display:inline-flex;align-items:center;gap:3px;padding:1px 8px;border-radius:10px;font-size:11px;background:${c.color}22;color:${c.color};font-weight:600;border:1px solid ${c.color}33;">
+        <span style="width:6px;height:6px;border-radius:50%;background:${c.color};"></span>
         ${escapeHTML(c.name)}
       </span>`).join('')}
-      <button class="btn btn-sm" onclick="openTodoColorSettings()" style="font-size:11px;padding:2px 8px;">
-        <span class="icon" style="width:12px;height:12px;">${getIcon('settings')}</span>
-        編輯
-      </button>
+      <button class="btn-ghost" onclick="openTodoColorSettings()" style="font-size:11px;padding:2px 6px;color:var(--ink-faint);">✏️ 編輯</button>
     </div>
     <div class="section-title">
       <span class="dot" style="background:var(--accent)"></span>
@@ -593,6 +628,12 @@ function saveTodoItem(todoId){
   
   persist(); 
   syncTodosToFirestore();
+  // 雙向同步
+  if(todoId){
+    const t = DB.todos.find(x=>x.id===todoId);
+    if(t && t.assignedBy && t.assignedBy !== DB.currentUser) syncTaskToAssigner(t);
+    if(t && t.assignee && t.assignee !== DB.currentUser) syncTaskToAssignee(t);
+  }
   closeModal(); 
   render();
 }

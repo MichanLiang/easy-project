@@ -20,6 +20,7 @@ const Icons = {
   moreHorizontal: '<i data-lucide="more-horizontal"></i>',
   x: '<i data-lucide="x"></i>',
   trash: '<i data-lucide="trash"></i>',
+  trash2: '<i data-lucide="trash-2"></i>',
   edit: '<i data-lucide="edit"></i>',
   save: '<i data-lucide="save"></i>',
   download: '<i data-lucide="download"></i>',

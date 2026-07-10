@@ -41,10 +41,10 @@ function renderGantt(p,d){
         ${d.tasks.map(t=>{
           const startOffset = Math.round((new Date(t.start)-minD)/86400000);
           const span = Math.max(1, Math.round((new Date(t.end)-new Date(t.start))/86400000));
-          return `<tr onclick="openGanttTaskModal('${p.id}','${d.id}','${t.id}')" style="cursor:pointer">
-            <td class="namecell" style="vertical-align:middle;">${escapeHTML(t.title)}</td>
-            <td style="position:relative;padding:0;height:32px;background:var(--bg-page);">
-              <div class="gantt-bar" style="position:absolute;top:6px;left:${nameCellW+startOffset*dayWidth}px;width:${span*dayWidth-4}px;height:20px;background:${t.color||'#C4A882'};border-radius:6px;opacity:0.9;"></div>
+          return `<tr onclick="openGanttTaskModal('${p.id}','${d.id}','${t.id}')" style="cursor:pointer;">
+            <td class="namecell" style="vertical-align:middle;background:var(--bg-page);">${escapeHTML(t.title)}</td>
+            <td style="position:relative;padding:0;height:36px;background:var(--bg-page);border-bottom:1px solid var(--line-light);">
+              <div class="gantt-bar" style="position:absolute;top:8px;left:${nameCellW+startOffset*dayWidth}px;width:${span*dayWidth-4}px;height:20px;background:${t.color||'#C4A882'};border-radius:6px;opacity:0.9;"></div>
             </td>
           </tr>`;
         }).join('')}

@@ -30,10 +30,11 @@ function viewBacklog(){
   </div>`;
 }
 
-// 從專案成員載入需求池項目
+// 從專案成員載入需求池項目（跳過已刪除的）
 async function loadProjectBacklogItems(){
   const user = auth.currentUser;
   if(!user || state.isGuest) return;
+  if(!Array.isArray(DB.dismissedBacklogs)) DB.dismissedBacklogs = [];
   
   try {
     for(const project of DB.projects){
@@ -45,7 +46,9 @@ async function loadProjectBacklogItems(){
             const memberData = memberDoc.data();
             const memberBacklog = memberData.backlogItems || [];
             for(const item of memberBacklog){
-              if(item.projectId === project.id && !DB.backlogItems.find(b=>b.id===item.id)){
+              // 跳過已刪除的、已存在的
+              if(DB.dismissedBacklogs.includes(item.id)) continue;
+              if(!DB.backlogItems.find(b=>b.id===item.id)){
                 DB.backlogItems.push(item);
               }
             }
@@ -81,6 +84,9 @@ function renderBacklogItem(i){
       <span class="icon">${getIcon('checkSquare')}</span>
       轉為任務
     </button>
+    <button class="btn btn-sm btn-danger" onclick="dismissBacklogItem('${i.id}')" style="margin-left:4px;" title="刪除">
+      <span class="icon">${getIcon('trash2')}</span>
+    </button>
   </div>`;
 }
 
@@ -109,8 +115,8 @@ function openBacklogModal(id){
       </div>
     </div>
     <div class="modal-foot">
-      ${id?`<button class="btn btn-danger" onclick="deleteBacklogItem('${id}')">
-        <span class="icon">${getIcon('trash')}</span>
+      ${id?`<button class="btn btn-danger" onclick="dismissBacklogItem('${id}')">
+        <span class="icon">${getIcon('trash2')}</span>
         刪除
       </button>`:''}
       <div style="flex:1"></div>
@@ -143,7 +149,10 @@ function saveBacklogItem(id){
   persist(); closeModal(); render();
 }
 
-function deleteBacklogItem(id){
+// 刪除需求池項目（記住已刪除，避免重新載入）
+function dismissBacklogItem(id){
+  if(!Array.isArray(DB.dismissedBacklogs)) DB.dismissedBacklogs = [];
+  DB.dismissedBacklogs.push(id);
   DB.backlogItems = DB.backlogItems.filter(x=>x.id!==id);
   persist(); closeModal(); render();
 }
@@ -155,6 +164,9 @@ function convertBacklogToTask(id){
   let kanbanDoc = p.docs.find(d=>d.type==='kanban');
   if(!kanbanDoc){ kanbanDoc = {id:uid(), type:'kanban', name:'開發看板', cards:[]}; p.docs.push(kanbanDoc); }
   kanbanDoc.cards.push({id:uid(), title:i.title, col:'pending', assignee:'', due:'', note:i.desc||'', attachments:[]});
+  // 轉為任務後也標記為已處理
+  if(!Array.isArray(DB.dismissedBacklogs)) DB.dismissedBacklogs = [];
+  DB.dismissedBacklogs.push(id);
   DB.backlogItems = DB.backlogItems.filter(x=>x.id!==id);
   persist(); toast('已轉為看板任務'); render();
 }

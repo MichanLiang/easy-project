@@ -1,6 +1,8 @@
 /* ================= PROJECTS LIST VIEW ================= */
 const PROJECT_STATUSES = ['構想','進行中','完成','維護'];
 const STATUS_COLOR = {'構想':'#C2B5B5','進行中':'#B8A9C9','完成':'#A8B5A0','維護':'#C9B896'};
+const PROJECT_PRIORITIES = ['高','中','低'];
+const PROJECT_CATEGORIES = ['開發','設計','行銷','營運','研究','其他'];
 
 function viewProjects(){
   const cols = PROJECT_STATUSES.map(st=>{
@@ -49,6 +51,10 @@ function renderProjectCard(p){
         <span class="icon">${getIcon('moreHorizontal')}</span>
       </button>
     </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0;">
+      ${p.priority ? `<span class="tag" style="font-size:10px;padding:1px 6px;background:${p.priority==='高'?'#C4A4A422':p.priority==='中'?'#C9B89622':'#A8B5A022'};color:${p.priority==='高'?'#C4A4A4':p.priority==='中'?'#C9B896':'#A8B5A0'};border:1px solid ${p.priority==='高'?'#C4A4A444':p.priority==='中'?'#C9B89644':'#A8B5A044'}">${p.priority}</span>` : ''}
+      ${p.category ? `<span class="tag" style="font-size:10px;padding:1px 6px;background:#9AABB822;color:#9AABB8;border:1px solid #9AABB844">${p.category}</span>` : ''}
+    </div>
     <div style="font-size:12px;color:var(--ink-faint);display:flex;align-items:center;gap:6px;">
       <span class="icon">${getIcon('file')}</span>
       ${docCount} 份文件
@@ -67,6 +73,14 @@ function openNewProjectModal(){
       <div class="field"><label>專案名稱</label><input type="text" id="npName" placeholder="請輸入專案名稱"></div>
       <div class="field"><label>初始狀態</label>
         <select id="npStatus">${PROJECT_STATUSES.map(s=>`<option>${s}</option>`).join('')}</select>
+      </div>
+      <div class="field-row" style="display:flex;gap:12px;">
+        <div class="field" style="flex:1"><label>優先度</label>
+          <select id="npPriority"><option value="">未指定</option>${PROJECT_PRIORITIES.map(s=>`<option>${s}</option>`).join('')}</select>
+        </div>
+        <div class="field" style="flex:1"><label>類別</label>
+          <select id="npCategory"><option value="">未指定</option>${PROJECT_CATEGORIES.map(s=>`<option>${s}</option>`).join('')}</select>
+        </div>
       </div>
       <div class="field"><label>成員</label>
         <div class="member-pick" id="npMembers">
@@ -91,8 +105,10 @@ function createProject(){
   const name = document.getElementById('npName').value.trim();
   if(!name){ toast('請輸入專案名稱'); return; }
   const status = document.getElementById('npStatus').value;
+  const priority = document.getElementById('npPriority').value;
+  const category = document.getElementById('npCategory').value;
   const memberIds = Array.from(document.querySelectorAll('#npMembers .mchip.on')).map(el=>el.dataset.id);
-  const newProject = {id:uid(), name, status, memberIds, docs:[]};
+  const newProject = {id:uid(), name, status, priority, category, memberIds, docs:[]};
   DB.projects.push(newProject);
   persist(); closeModal(); toast('專案已建立'); go('projects');
   // 同步專案到所有成員
@@ -107,6 +123,14 @@ function openProjectSettingsModal(id){
       <div class="field"><label>專案名稱</label><input type="text" id="epName" value="${escapeHTML(p.name)}"></div>
       <div class="field"><label>狀態</label>
         <select id="epStatus">${PROJECT_STATUSES.map(s=>`<option ${s===p.status?'selected':''}>${s}</option>`).join('')}</select>
+      </div>
+      <div class="field-row" style="display:flex;gap:12px;">
+        <div class="field" style="flex:1"><label>優先度</label>
+          <select id="epPriority"><option value="">未指定</option>${PROJECT_PRIORITIES.map(s=>`<option ${s===(p.priority||'')?'selected':''}>${s}</option>`).join('')}</select>
+        </div>
+        <div class="field" style="flex:1"><label>類別</label>
+          <select id="epCategory"><option value="">未指定</option>${PROJECT_CATEGORIES.map(s=>`<option ${s===(p.category||'')?'selected':''}>${s}</option>`).join('')}</select>
+        </div>
       </div>
       <div class="field"><label>成員</label>
         <div class="member-pick" id="epMembers">
@@ -134,9 +158,10 @@ function saveProjectSettings(id){
   const p = DB.projects.find(x=>x.id===id);
   p.name = document.getElementById('epName').value.trim() || p.name;
   p.status = document.getElementById('epStatus').value;
+  p.priority = document.getElementById('epPriority').value;
+  p.category = document.getElementById('epCategory').value;
   p.memberIds = Array.from(document.querySelectorAll('#epMembers .mchip.on')).map(el=>el.dataset.id);
   persist(); closeModal(); toast('已儲存'); render();
-  // 同步更新到所有成員
   syncProjectUpdateToMembers(p);
 }
 

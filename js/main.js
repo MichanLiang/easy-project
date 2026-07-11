@@ -23,6 +23,7 @@ function render(){
   switch(state.route){
     case 'projects': viewHTML = viewProjects(); break;
     case 'project': viewHTML = viewProjectDetail(); break;
+    case 'weekly': viewHTML = viewWeekly(); break;
     case 'calendar': viewHTML = viewCalendar(); break;
     case 'todos': viewHTML = viewTodos(); break;
     case 'backlog': viewHTML = viewBacklog(); break;

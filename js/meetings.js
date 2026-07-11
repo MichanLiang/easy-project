@@ -74,6 +74,24 @@ function viewMeetingsGlobal(){
   const standalone = DB.meetings;
   const all = [...standalone.map(m => ({...m, projectName: null})), ...projMeetings];
   all.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+  // 本週日期範圍
+  const now = new Date();
+  const dayOfWeek = now.getDay() || 7;
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - dayOfWeek + 1);
+  monday.setHours(0,0,0,0);
+
+  const dayNames = ['一','二','三','四','五','六','日'];
+  const weekDays = [];
+  for(let i = 0; i < 7; i++){
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    const dateStr = d.toISOString().slice(0,10);
+    const isToday = dateStr === now.toISOString().slice(0,10);
+    const dayMeetings = all.filter(m => m.date === dateStr);
+    weekDays.push({dateStr, dayName:dayNames[i], isToday, meetings:dayMeetings});
+  }
   
   setTimeout(initIcons, 10);
   
@@ -120,17 +138,41 @@ function viewMeetingsGlobal(){
       <div class="page-title">會議記錄</div>
       <div class="page-sub">可隸屬於各專案，也可以獨立記錄速記</div>
     </div>
-    <button class="btn btn-primary" onclick="openStandaloneMeetingModal()">
+    <button class="btn btn-primary btn-sm" onclick="openStandaloneMeetingModal()">
       <span class="icon">${getIcon('plus')}</span>
       新增速記
     </button>
   </div>
+
+  <!-- 本週曆 -->
+  <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:20px;">
+    <div style="display:flex;gap:0;min-width:700px;">
+      ${weekDays.map(day => `
+        <div style="flex:1;min-width:100px;border:1px solid var(--line);border-radius:8px;overflow:hidden;${day.isToday ? 'border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);' : ''}">
+          <div style="padding:8px 10px;background:${day.isToday ? 'var(--accent-soft)' : 'var(--bg-subtle)'};border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:12px;font-weight:700;color:${day.isToday ? 'var(--accent)' : 'var(--ink-faint)'}">週${day.dayName}</span>
+            <span style="font-size:11px;color:var(--ink-faint);">${day.dateStr.slice(5)}</span>
+          </div>
+          <div style="padding:6px;min-height:60px;">
+            ${day.meetings.map(m => {
+              const click = m.projectId
+                ? `go('project',{projectId:'${m.projectId}',docId:'${m.id}'})`
+                : `openStandaloneMeetingModal('${m.id}')`;
+              return `<div onclick="${click}" style="padding:4px 6px;margin-bottom:4px;border-radius:4px;background:var(--accent-soft);cursor:pointer;font-size:11px;color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHTML(m.name || m.title || '速記')}</div>`;
+            }).join('')}
+            <div onclick="openStandaloneMeetingModal(null,'${day.dateStr}')" style="padding:4px 6px;border-radius:4px;border:1px dashed var(--line);cursor:pointer;font-size:11px;color:var(--ink-faint);text-align:center;">+ 新增</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  </div>
+
   <div class="card">
     ${listHTML}
   </div>`;
 }
 
-function openStandaloneMeetingModal(meetingId){
+function openStandaloneMeetingModal(meetingId, prefillDate){
   const meeting = meetingId ? DB.meetings.find(m => m.id === meetingId) : null;
   const isEdit = !!meeting;
   
@@ -139,7 +181,7 @@ function openStandaloneMeetingModal(meetingId){
     <div class="modal-body">
       <div class="field"><label>標題</label><input type="text" id="smTitle" value="${escapeHTML(meeting?.title || '')}" placeholder="會議或速記標題"></div>
       <div class="field-row">
-        <div class="field"><label>日期</label><input type="date" id="smDate" value="${meeting?.date || todayStr()}"></div>
+        <div class="field"><label>日期</label><input type="date" id="smDate" value="${meeting?.date || prefillDate || todayStr()}"></div>
         <div class="field"><label>出席人員</label><input type="text" id="smAttendees" value="${escapeHTML(meeting?.attendees || '')}" placeholder="選填"></div>
       </div>
       <div class="field"><label>內容</label><textarea id="smContent" style="min-height:180px" placeholder="快速記下重點…">${escapeHTML(meeting?.content || '')}</textarea></div>

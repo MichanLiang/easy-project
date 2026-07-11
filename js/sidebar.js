@@ -1,6 +1,7 @@
 /* ================= SIDEBAR ================= */
 const NAV_ITEMS = [
   {key:'projects', label:'專案管理', icon:'folder'},
+  {key:'weekly', label:'本週計畫', icon:'calendarClock'},
   {key:'calendar', label:'行事曆', icon:'calendar'},
   {key:'todos', label:'待辦清單', icon:'checkSquare'},
   {key:'backlog', label:'需求池', icon:'lightbulb'},

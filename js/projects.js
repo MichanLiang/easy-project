@@ -427,55 +427,10 @@ function saveDocSelection(){
   const sel = window.getSelection();
   if(!sel.rangeCount) return;
   const r = sel.getRangeAt(0);
-  const editor = r.startContainer.nodeType === 3
-    ? r.startContainer.parentElement.closest('.doc-editor')
-    : r.startContainer.closest?.('.doc-editor') || (r.startContainer.classList?.contains('doc-editor') ? r.startContainer : null);
+  const node = r.startContainer.nodeType === 3 ? r.startContainer.parentElement : r.startContainer;
+  const editor = node.closest?.('.doc-editor') || (node.classList?.contains('doc-editor') ? node : null);
   if(!editor) return;
-  _docSelData = {
-    editorId: editor.id,
-    text: r.toString(),
-    start: getTextOffset(editor, r.startContainer, r.startOffset),
-    end: getTextOffset(editor, r.endContainer, r.endOffset)
-  };
-}
-
-function getTextOffset(editor, node, offset){
-  if(node.nodeType === 1){
-    const child = node.childNodes[offset];
-    if(child){
-      const tw = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null);
-      let count = 0, n;
-      while(n = tw.nextNode()){
-        if(n === child) return count;
-        count += n.textContent.length;
-      }
-    }
-    const tw2 = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null);
-    let count = 0, n2;
-    while(n2 = tw2.nextNode()){
-      if(node.contains(n2)) count += n2.textContent.length;
-    }
-    return count;
-  }
-  const walk = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null);
-  let count = 0, n;
-  while(n = walk.nextNode()){
-    if(n === node) return count + offset;
-    count += n.textContent.length;
-  }
-  return count;
-}
-
-function getTextNodeAtOffset(editor, targetOffset){
-  const walk = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null);
-  let count = 0, n;
-  while(n = walk.nextNode()){
-    if(count + n.textContent.length >= targetOffset){
-      return { node: n, offset: targetOffset - count };
-    }
-    count += n.textContent.length;
-  }
-  return null;
+  _docSelData = { editorId: editor.id, range: r.cloneRange() };
 }
 
 function restoreDocSelection(){
@@ -483,16 +438,25 @@ function restoreDocSelection(){
   const editor = document.getElementById(_docSelData.editorId);
   if(!editor) return false;
   editor.focus();
-  const start = getTextNodeAtOffset(editor, _docSelData.start);
-  const end = getTextNodeAtOffset(editor, _docSelData.end);
-  if(!start || !end) return false;
-  const range = document.createRange();
-  range.setStart(start.node, start.offset);
-  range.setEnd(end.node, end.offset);
   const sel = window.getSelection();
   sel.removeAllRanges();
-  sel.addRange(range);
+  sel.addRange(_docSelData.range);
   return true;
+}
+
+function detectDocFontSize(){
+  const sel = window.getSelection();
+  if(!sel.rangeCount) return null;
+  const r = sel.getRangeAt(0);
+  if(r.collapsed) return null;
+  const node = r.startContainer.nodeType === 3 ? r.startContainer.parentElement : r.startContainer;
+  return parseInt(window.getComputedStyle(node).fontSize) || null;
+}
+
+function updateFontSizeInput(editorId){
+  const px = detectDocFontSize();
+  const input = document.getElementById('fontSizeInput-'+editorId);
+  if(input && px) input.value = px;
 }
 
 function focusFontSizeInput(editorId){
@@ -527,22 +491,11 @@ function decDocFontSize(editorId){
 function applyDocFontSizeLive(editorId, val){
   const px = parseInt(val);
   if(isNaN(px) || px < 1) return;
-  
-  const editor = document.getElementById(editorId);
-  if(!editor) return;
-  
-  if(!_docSelData || _docSelData.editorId !== editorId) return;
-  
-  const start = getTextNodeAtOffset(editor, _docSelData.start);
-  const end = getTextNodeAtOffset(editor, _docSelData.end);
-  if(!start || !end) return;
-  
-  const range = document.createRange();
-  range.setStart(start.node, start.offset);
-  range.setEnd(end.node, end.offset);
-  
-  const selText = range.toString();
-  if(!selText) return;
+  if(!restoreDocSelection()) return;
+  const sel = window.getSelection();
+  if(!sel.rangeCount) return;
+  const range = sel.getRangeAt(0);
+  if(range.collapsed) return;
   
   const contents = range.cloneContents();
   const div = document.createElement('div');
@@ -553,20 +506,13 @@ function applyDocFontSizeLive(editorId, val){
   range.deleteContents();
   range.insertNode(span);
   
-  const sel = window.getSelection();
   const newRange = document.createRange();
   newRange.selectNodeContents(span);
   sel.removeAllRanges();
   sel.addRange(newRange);
+  _docSelData = { editorId: editorId, range: newRange.cloneRange() };
   
-  _docSelData = {
-    editorId: editorId,
-    text: selText,
-    start: getTextOffset(editor, newRange.startContainer, newRange.startOffset),
-    end: getTextOffset(editor, newRange.endContainer, newRange.endOffset)
-  };
-  
-  updatePlainDocHTML(editorId.replace('doc-','').split('-')[0], editorId.replace('doc-',''), editor.innerHTML);
+  updatePlainDocHTML(editorId.replace('doc-','').split('-')[0], editorId.replace('doc-',''), document.getElementById(editorId).innerHTML);
 }
 
 function applyDocFontSize(editorId, val){
@@ -578,7 +524,6 @@ function applyDocFontSize(editorId, val){
   const range = sel.getRangeAt(0);
   if(range.collapsed) return;
   
-  const editor = document.getElementById(editorId);
   const contents = range.cloneContents();
   const div = document.createElement('div');
   div.appendChild(contents);
@@ -592,16 +537,10 @@ function applyDocFontSize(editorId, val){
   newRange.selectNodeContents(span);
   sel.removeAllRanges();
   sel.addRange(newRange);
-  
-  _docSelData = {
-    editorId: editorId,
-    text: span.textContent,
-    start: getTextOffset(editor, newRange.startContainer, newRange.startOffset),
-    end: getTextOffset(editor, newRange.endContainer, newRange.endOffset)
-  };
+  _docSelData = { editorId: editorId, range: newRange.cloneRange() };
   
   document.getElementById('fontSizeInput-'+editorId).value = px;
-  updatePlainDocHTML(editorId.replace('doc-','').split('-')[0], editorId.replace('doc-',''), editor.innerHTML);
+  updatePlainDocHTML(editorId.replace('doc-','').split('-')[0], editorId.replace('doc-',''), document.getElementById(editorId).innerHTML);
 }
 
 function docExecWithColor(cmd, val, indicatorId, paletteId){
@@ -836,6 +775,18 @@ function initDocTableListeners(){
 }
 
 initDocTableListeners();
+
+document.addEventListener('selectionchange', function(){
+  const sel = window.getSelection();
+  if(!sel.rangeCount) return;
+  const node = sel.anchorNode?.nodeType === 3 ? sel.anchorNode.parentElement : sel.anchorNode;
+  const editor = node?.closest?.('.doc-editor');
+  if(!editor) return;
+  const id = editor.id;
+  const px = detectDocFontSize();
+  const input = document.getElementById('fontSizeInput-'+id);
+  if(input && px && document.activeElement !== input) input.value = px;
+});
 
 function restoreDocTables(){
   document.querySelectorAll('.doc-table').forEach(t=>addTableResizeHandles(t));

@@ -356,7 +356,46 @@ function renderDocView(p,d){
 }
 
 function renderPlainDoc(p,d){
-  return `<textarea class="card" style="width:100%;min-height:420px;padding:20px;border:1px solid var(--line);font-size:14px;border-radius:var(--radius-lg);" oninput="updatePlainDoc('${p.id}','${d.id}',this.value)" placeholder="開始輸入文件內容…">${escapeHTML(d.content||'')}</textarea>`;
+  const id = 'doc-'+d.id;
+  return `
+  <div class="card" style="padding:0;border:1px solid var(--line);border-radius:var(--radius-lg);overflow:hidden;">
+    <div class="doc-toolbar" id="toolbar-${id}" style="display:flex;flex-wrap:wrap;gap:2px;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--bg-subtle);">
+      <select onchange="docExec('fontSize',this.value);this.blur();" style="padding:4px 6px;border:1px solid var(--line);border-radius:4px;font-size:12px;background:var(--bg);">
+        <option value="">大小</option>
+        <option value="1">小</option>
+        <option value="3">一般</option>
+        <option value="5">大</option>
+        <option value="7">超大</option>
+      </select>
+      <input type="color" value="#000000" onchange="docExec('foreColor',this.value);this.blur();" style="width:28px;height:28px;padding:0;border:1px solid var(--line);border-radius:4px;cursor:pointer;" title="字體顏色">
+      <input type="color" value="#FFFF00" onchange="docExec('hiliteColor',this.value);this.blur();" style="width:28px;height:28px;padding:0;border:1px solid var(--line);border-radius:4px;cursor:pointer;" title="螢光標記">
+      <div style="width:1px;height:24px;background:var(--line);margin:0 4px;"></div>
+      <button class="btn-ghost btn-icon btn-sm" onclick="docExec('bold')" title="粗體"><b>B</b></button>
+      <button class="btn-ghost btn-icon btn-sm" onclick="docExec('italic')" title="斜體"><i>I</i></button>
+      <button class="btn-ghost btn-icon btn-sm" onclick="docExec('underline')" title="底線"><u>U</u></button>
+      <button class="btn-ghost btn-icon btn-sm" onclick="docExec('strikeThrough')" title="刪除線"><s>S</s></button>
+      <div style="width:1px;height:24px;background:var(--line);margin:0 4px;"></div>
+      <button class="btn-ghost btn-icon btn-sm" onclick="docExec('justifyLeft')" title="靠左">${getIcon('alignLeft')}</button>
+      <button class="btn-ghost btn-icon btn-sm" onclick="docExec('justifyCenter')" title="置中">${getIcon('alignCenter')}</button>
+      <button class="btn-ghost btn-icon btn-sm" onclick="docExec('justifyRight')" title="靠右">${getIcon('alignRight')}</button>
+      <div style="width:1px;height:24px;background:var(--line);margin:0 4px;"></div>
+      <button class="btn-ghost btn-icon btn-sm" onclick="docExec('insertUnorderedList')" title="項目符號">${getIcon('list')}</button>
+      <button class="btn-ghost btn-icon btn-sm" onclick="docExec('insertOrderedList')" title="編號清單">${getIcon('listOrdered')}</button>
+      <div style="width:1px;height:24px;background:var(--line);margin:0 4px;"></div>
+      <button class="btn-ghost btn-icon btn-sm" onclick="docExec('removeFormat')" title="清除格式">${getIcon('eraser')}</button>
+    </div>
+    <div id="${id}" class="doc-editor" contenteditable="true" style="min-height:420px;padding:20px;font-size:14px;line-height:1.7;outline:none;overflow-y:auto;" oninput="updatePlainDocHTML('${p.id}','${d.id}',this.innerHTML)">${d.content||'<p><br></p>'}</div>
+  </div>`;
+}
+
+function docExec(cmd, val){
+  document.execCommand(cmd, false, val || null);
+}
+
+function updatePlainDocHTML(pId,dId,html){
+  const p=DB.projects.find(x=>x.id===pId); const d=p.docs.find(x=>x.id===dId);
+  d.content = html; persist();
+  syncProjectAfterChange(pId);
 }
 
 function updatePlainDoc(pId,dId,val){

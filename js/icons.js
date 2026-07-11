@@ -85,6 +85,13 @@ const Icons = {
   eyeOff: '<i data-lucide="eye-off"></i>',
   info: '<i data-lucide="info"></i>',
   alertTriangle: '<i data-lucide="alert-triangle"></i>',
+  alignLeft: '<i data-lucide="align-left"></i>',
+  alignCenter: '<i data-lucide="align-center"></i>',
+  alignRight: '<i data-lucide="align-right"></i>',
+  list: '<i data-lucide="list"></i>',
+  listOrdered: '<i data-lucide="list-ordered"></i>',
+  eraser: '<i data-lucide="eraser"></i>',
+  font: '<i data-lucide="font"></i>',
 };
 
 // Helper function to get icon

@@ -2056,3 +2056,10 @@ input[type=number]{
   background:var(--accent);
   opacity:0.5;
 }
+.doc-editor p{
+  margin:0;
+  padding:0;
+}
+.doc-editor>*:first-child{
+  margin-top:0;
+}

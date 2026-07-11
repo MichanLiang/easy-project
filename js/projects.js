@@ -416,7 +416,7 @@ function renderPlainDoc(p,d){
       <button class="btn-ghost btn-icon btn-sm" onclick="insertDocTable('${id}')" title="插入表格">${getIcon('table')}</button>
       <button class="btn-ghost btn-icon btn-sm" onclick="docExec('removeFormat')" title="清除格式">${getIcon('eraser')}</button>
     </div>
-    <div id="${id}" class="doc-editor" contenteditable="true" style="min-height:420px;padding:20px;font-size:14px;line-height:1.7;outline:none;overflow-y:auto;" oninput="updatePlainDocHTML('${p.id}','${d.id}',this.innerHTML)">${d.content||'<p><br></p>'}</div>
+    <div id="${id}" class="doc-editor" contenteditable="true" style="min-height:420px;padding:20px;font-size:14px;line-height:1.5;outline:none;overflow-y:auto;" oninput="updatePlainDocHTML('${p.id}','${d.id}',this.innerHTML)">${d.content||'<p><br></p>'}</div>
   </div>`;
 }
 

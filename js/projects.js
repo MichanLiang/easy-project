@@ -367,7 +367,12 @@ function renderPlainDoc(p,d){
   <div class="card" style="padding:0;border:1px solid var(--line);border-radius:var(--radius-lg);overflow:visible;">
     <div class="doc-toolbar" id="toolbar-${id}" style="display:flex;flex-wrap:wrap;gap:2px;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--bg-subtle);">
       <div style="display:flex;align-items:center;gap:2px;">
-        <input type="number" id="fontSizeInput-${id}" list="fontSizeList-${id}" min="8" max="200" value="14" onmousedown="saveDocSelection()" onchange="applyDocFontSize('${id}',this.value)" onkeydown="if(event.key==='Enter'){applyDocFontSize('${id}',this.value);this.blur();}" style="width:52px;padding:4px 4px;border:1px solid var(--line);border-radius:4px;font-size:12px;background:var(--bg);text-align:center;" placeholder="px">
+        <input type="number" id="fontSizeInput-${id}" list="fontSizeList-${id}" min="8" max="200" value="14"
+          onmousedown="saveDocSelection()" onfocus="saveDocSelection()"
+          oninput="applyDocFontSizeLive('${id}',this.value)"
+          onchange="applyDocFontSizeLive('${id}',this.value)"
+          onkeydown="if(event.key==='Enter'){applyDocFontSizeLive('${id}',this.value);this.blur();}"
+          style="width:52px;padding:4px 4px;border:1px solid var(--line);border-radius:4px;font-size:12px;background:var(--bg);text-align:center;" placeholder="px">
         <span style="font-size:11px;color:var(--ink-faint);">px</span>
         <datalist id="fontSizeList-${id}">
           <option value="8"><option value="10"><option value="12"><option value="14"><option value="16"><option value="18"><option value="20"><option value="24"><option value="28"><option value="32"><option value="36"><option value="48"><option value="64"><option value="72"><option value="96">
@@ -435,6 +440,29 @@ function toggleDocPalette(id){
   const show = el.style.display === 'none';
   document.querySelectorAll('.doc-palette').forEach(p=>p.style.display='none');
   if(show) el.style.display = 'block';
+}
+
+function applyDocFontSizeLive(editorId, val){
+  const px = parseInt(val);
+  if(isNaN(px) || px < 1) return;
+  restoreDocSelection();
+  const sel = window.getSelection();
+  if(!sel.rangeCount) return;
+  const range = sel.getRangeAt(0);
+  if(range.collapsed) return;
+  
+  const contents = range.cloneContents();
+  const div = document.createElement('div');
+  div.appendChild(contents);
+  const span = document.createElement('span');
+  span.setAttribute('style','font-size:'+px+'px !important');
+  span.innerHTML = div.innerHTML;
+  range.deleteContents();
+  range.insertNode(span);
+  
+  saveDocSelection();
+  const editor = document.getElementById(editorId);
+  if(editor) updatePlainDocHTML(editorId.replace('doc-','').split('-')[0], editorId.replace('doc-',''), editor.innerHTML);
 }
 
 function applyDocFontSize(editorId, val){

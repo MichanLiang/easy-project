@@ -41,8 +41,8 @@ function renderSidebar(){
     <div class="sidebar-head">
       <div class="sidebar-logo">簡</div>
       <div class="sidebar-title">簡案</div>
-      <button class="collapse-btn" onclick="toggleSidebar()">
-        <span class="icon">${c ? getIcon('chevronRight') : getIcon('chevronLeft')}</span>
+      <button class="collapse-btn" onclick="toggleSidebar()" ${window.innerWidth<=768 && c ? 'style="display:none"' : ''}>
+        <span class="icon">${getIcon('x')}</span>
       </button>
     </div>
     <div class="nav">

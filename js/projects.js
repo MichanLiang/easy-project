@@ -169,7 +169,10 @@ function deleteProject(id){
   if(!confirm('確定要刪除此專案嗎？')) return;
   const project = DB.projects.find(p=>p.id===id);
   DB.projects = DB.projects.filter(p=>p.id!==id);
-  if(project) trashItem('project', project);
+  if(project){
+    trashItem('project', project);
+    removeProjectFromMembers(project);
+  }
   closeModal(); go('projects');
 }
 

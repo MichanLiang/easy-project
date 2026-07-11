@@ -77,7 +77,7 @@ function openKcardModal(pId,dId,cardId,initCol){
       <div class="field"><label>標題</label><input type="text" id="kcTitle" value="${escapeHTML(c.title)}" placeholder="任務標題"></div>
       <div class="field-row">
         <div class="field"><label>狀態</label><select id="kcCol">${KANBAN_COLS.map(k=>`<option value="${k.key}" ${c.col===k.key?'selected':''}>${k.label}</option>`).join('')}</select></div>
-        <div class="field"><label>指派給</label><select id="kcAssignee"><option value="">未指派</option>${DB.members.map(m=>`<option value="${m.id}" ${c.assignee===m.id?'selected':''}>${escapeHTML(m.name)}</option>`).join('')}</select></div>
+        <div class="field"><label>指派給</label><select id="kcAssignee"><option value="">未指派</option>${DB.members.map(m=>`<option value="${m.id}" ${c.assignee===m.id?'selected':''}>${escapeHTML(memberName(m.id))}</option>`).join('')}</select></div>
       </div>
       <div class="field"><label>截止日期</label><input type="date" id="kcDue" value="${c.due||''}"></div>
       <div class="field"><label>備註</label><textarea id="kcNote" placeholder="補充說明…">${escapeHTML(c.note||'')}</textarea></div>

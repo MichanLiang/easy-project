@@ -580,7 +580,7 @@ function openTodoModal(todoId, presetProjectId){
   
   // 建立指派選項（包含所有團隊成員）
   const assigneeOptions = DB.members.map(m => 
-    `<option value="${m.id}" ${t.assignee===m.id?'selected':''}>${escapeHTML(m.name)} ${m.email ? '(' + m.email + ')' : ''}</option>`
+    `<option value="${m.id}" ${t.assignee===m.id?'selected':''}>${escapeHTML(memberName(m.id))} ${m.email ? '(' + m.email + ')' : ''}</option>`
   ).join('');
   
   openModal(`
@@ -652,7 +652,7 @@ function refreshTodoAssigneeOptions(){
   const proj = DB.projects.find(p=>p.id===pid);
   // 顯示所有團隊成員
   document.getElementById('tdAssignee').innerHTML = DB.members.map(m => 
-    `<option value="${m.id}">${escapeHTML(m.name)} ${m.email ? '(' + m.email + ')' : ''}</option>`
+    `<option value="${m.id}">${escapeHTML(memberName(m.id))} ${m.email ? '(' + m.email + ')' : ''}</option>`
   ).join('');
 }
 

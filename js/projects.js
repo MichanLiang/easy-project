@@ -84,7 +84,7 @@ function openNewProjectModal(){
       </div>
       <div class="field"><label>成員</label>
         <div class="member-pick" id="npMembers">
-          ${DB.members.map(m=>`<div class="mchip on" data-id="${m.id}" onclick="toggleChip(this)">${avatarHTML(m.id,22)} ${m.name}</div>`).join('')}
+          ${DB.members.map(m=>`<div class="mchip on" data-id="${m.id}" onclick="toggleChip(this)">${avatarHTML(m.id,22)} ${memberName(m.id)}</div>`).join('')}
         </div>
       </div>
     </div>
@@ -134,7 +134,7 @@ function openProjectSettingsModal(id){
       </div>
       <div class="field"><label>成員</label>
         <div class="member-pick" id="epMembers">
-          ${DB.members.map(m=>`<div class="mchip ${p.memberIds.includes(m.id)?'on':''}" data-id="${m.id}" onclick="toggleChip(this)">${avatarHTML(m.id,22)} ${m.name}</div>`).join('')}
+          ${DB.members.map(m=>`<div class="mchip ${p.memberIds.includes(m.id)?'on':''}" data-id="${m.id}" onclick="toggleChip(this)">${avatarHTML(m.id,22)} ${memberName(m.id)}</div>`).join('')}
         </div>
       </div>
     </div>

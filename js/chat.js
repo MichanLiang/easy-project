@@ -105,7 +105,7 @@ function openCreateGroupModal(){
       <div class="field"><label>群組名稱</label><input type="text" id="grpName" placeholder="例如：前端開發組"></div>
       <div class="field"><label>選擇成員</label>
         <div class="member-pick" id="grpMembers">
-          ${contacts.map(m=>`<div class="mchip" data-id="${m.id}" onclick="toggleChip(this)">${avatarHTML(m.id,22)} ${m.name}</div>`).join('')}
+          ${contacts.map(m=>`<div class="mchip" data-id="${m.id}" onclick="toggleChip(this)">${avatarHTML(m.id,22)} ${memberName(m.id)}</div>`).join('')}
         </div>
       </div>
     </div>
@@ -149,7 +149,7 @@ function openEditGroupModal(groupId){
       <div class="field"><label>群組名稱</label><input type="text" id="editGrpName" value="${escapeHTML(g.name)}"></div>
       <div class="field"><label>成員</label>
         <div class="member-pick" id="editGrpMembers">
-          ${contacts.map(m=>`<div class="mchip ${g.memberIds.includes(m.id)?'on':''}" data-id="${m.id}" onclick="toggleChip(this)">${avatarHTML(m.id,22)} ${m.name}</div>`).join('')}
+          ${contacts.map(m=>`<div class="mchip ${g.memberIds.includes(m.id)?'on':''}" data-id="${m.id}" onclick="toggleChip(this)">${avatarHTML(m.id,22)} ${memberName(m.id)}</div>`).join('')}
         </div>
       </div>
     </div>

@@ -1,13 +1,20 @@
 /* ================= MEETINGS ================= */
 function renderMeetingDoc(p,d){
-  // 建立與會人員選項（從專案成員）
-  const attendeesList = (d.attendees || '').split(',').map(s=>s.trim()).filter(Boolean);
+  // attendees could be old format (names) or new format (IDs); normalize to IDs
+  const raw = (d.attendees || '').split(',').map(s=>s.trim()).filter(Boolean);
+  const attendeeIds = raw.map(r => {
+    const m = DB.members.find(x => x.id === r);
+    return m ? m.id : r; // if it's an ID, keep it; if it's an old name, try to find by name
+  }).filter(Boolean);
+  // also handle legacy name-based entries
+  const attendeeNames = raw.filter(r => !DB.members.find(x => x.id === r));
+  
   const memberCheckboxes = DB.members
     .filter(m => p.memberIds.includes(m.id))
     .map(m => {
-      const isChecked = attendeesList.includes(m.name);
-      return `<label class="attendee-chip ${isChecked?'on':''}" data-name="${escapeHTML(m.name)}" onclick="toggleMeetingAttendee(this,'${p.id}','${d.id}')" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:16px;font-size:13px;border:2px solid ${isChecked?'var(--accent)':'var(--line)'};margin:2px;background:${isChecked?'var(--accent-soft)':'transparent'};transition:all 0.15s;">
-      ${avatarHTML(m.id, 18)} ${escapeHTML(m.name)}
+      const isChecked = attendeeIds.includes(m.id) || attendeeNames.includes(m.name);
+      return `<label class="attendee-chip ${isChecked?'on':''}" data-id="${m.id}" onclick="toggleMeetingAttendee(this,'${p.id}','${d.id}')" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:16px;font-size:13px;border:2px solid ${isChecked?'var(--accent)':'var(--line)'};margin:2px;background:${isChecked?'var(--accent-soft)':'transparent'};transition:all 0.15s;">
+      ${avatarHTML(m.id, 18)} ${escapeHTML(memberName(m.id))}
     </label>`;
     }).join('');
   
@@ -36,15 +43,15 @@ function toggleMeetingAttendee(el, pId, dId){
   
   el.classList.toggle('on');
   const isOn = el.classList.contains('on');
-  const name = el.dataset.name;
+  const memberId = el.dataset.id;
   
   // 更新樣式
   el.style.border = `2px solid ${isOn ? 'var(--accent)' : 'var(--line)'}`;
   el.style.background = isOn ? 'var(--accent-soft)' : 'transparent';
   
-  // 收集所有已選取的人員
+  // 收集所有已選取的人員 (store IDs)
   const container = document.getElementById(`attendeeList-${pId}-${dId}`);
-  const checked = Array.from(container.querySelectorAll('.attendee-chip.on')).map(chip=>chip.dataset.name);
+  const checked = Array.from(container.querySelectorAll('.attendee-chip.on')).map(chip=>chip.dataset.id);
   d.attendees = checked.join(', ');
   persist();
 }

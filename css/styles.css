@@ -2005,3 +2005,42 @@ svg.edges{
     padding:12px !important;
   }
 }
+
+/* Doc table styles */
+.doc-table{
+  border-collapse:collapse;
+  width:100%;
+  margin:12px 0;
+  table-layout:fixed;
+}
+.doc-table th,
+.doc-table td{
+  border:1px solid var(--line);
+  padding:8px 10px;
+  min-width:60px;
+  vertical-align:top;
+  position:relative;
+}
+.doc-table th{
+  background:var(--bg-subtle);
+  font-weight:600;
+}
+.doc-table td:focus,
+.doc-table th:focus{
+  outline:2px solid var(--accent);
+  outline-offset:-2px;
+}
+.doc-table .cell-actions{
+  position:absolute;
+  top:-28px;
+  left:50%;
+  transform:translateX(-50%);
+  display:flex;
+  gap:2px;
+  background:var(--bg);
+  border:1px solid var(--line);
+  border-radius:6px;
+  padding:3px;
+  box-shadow:0 2px 8px rgba(0,0,0,.12);
+  white-space:nowrap;
+}

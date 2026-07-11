@@ -92,6 +92,7 @@ const Icons = {
   listOrdered: '<i data-lucide="list-ordered"></i>',
   eraser: '<i data-lucide="eraser"></i>',
   font: '<i data-lucide="font"></i>',
+  table: '<i data-lucide="table"></i>',
 };
 
 // Helper function to get icon

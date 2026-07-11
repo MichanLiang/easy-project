@@ -408,6 +408,7 @@ function renderPlainDoc(p,d){
       <button class="btn-ghost btn-icon btn-sm" onclick="docExec('insertUnorderedList')" title="項目符號">${getIcon('list')}</button>
       <button class="btn-ghost btn-icon btn-sm" onclick="docExec('insertOrderedList')" title="編號清單">${getIcon('listOrdered')}</button>
       <div style="width:1px;height:24px;background:var(--line);margin:0 4px;"></div>
+      <button class="btn-ghost btn-icon btn-sm" onclick="insertDocTable('${id}')" title="插入表格">${getIcon('table')}</button>
       <button class="btn-ghost btn-icon btn-sm" onclick="docExec('removeFormat')" title="清除格式">${getIcon('eraser')}</button>
     </div>
     <div id="${id}" class="doc-editor" contenteditable="true" style="min-height:420px;padding:20px;font-size:14px;line-height:1.7;outline:none;overflow-y:auto;" oninput="updatePlainDocHTML('${p.id}','${d.id}',this.innerHTML)">${d.content||'<p><br></p>'}</div>
@@ -446,6 +447,168 @@ function docExecWithColor(cmd, val, indicatorId, paletteId){
 function docExec(cmd, val){
   document.execCommand(cmd, false, val || null);
 }
+
+function insertDocTable(editorId){
+  const editor = document.getElementById(editorId);
+  if(!editor) return;
+  editor.focus();
+  const table = document.createElement('table');
+  table.className = 'doc-table';
+  table.setAttribute('contenteditable', 'false');
+  let html = '<thead><tr>';
+  for(let c=0;c<3;c++) html += '<th><br></th>';
+  html += '</tr></thead><tbody>';
+  for(let r=0;r<3;r++){
+    html += '<tr>';
+    for(let c=0;c<3;c++) html += '<td><br></td>';
+    html += '</tr>';
+  }
+  html += '</tbody>';
+  table.innerHTML = html;
+  
+  const sel = window.getSelection();
+  let insertNode = editor;
+  if(sel.rangeCount){
+    const range = sel.getRangeAt(0);
+    if(editor.contains(range.startContainer)){
+      insertNode = range.startContainer;
+      while(insertNode.parentNode && insertNode.parentNode !== editor) insertNode = insertNode.parentNode;
+    }
+  }
+  
+  const br = document.createElement('p');
+  br.innerHTML = '<br>';
+  if(insertNode === editor){
+    editor.appendChild(table);
+    editor.appendChild(br);
+  } else {
+    insertNode.parentNode.insertBefore(table, insertNode.nextSibling);
+    insertNode.parentNode.insertBefore(br, table.nextSibling);
+  }
+  updatePlainDocHTML(editorId.replace('doc-','').split('-')[0], editorId.replace('doc-',''), editor.innerHTML);
+}
+
+function addDocTableCol(btn){
+  const td = btn.closest('td,th');
+  const table = td.closest('table');
+  const idx = Array.from(td.parentNode.children).indexOf(td);
+  table.querySelectorAll('tr').forEach(tr=>{
+    const cell = document.createElement(tr.closest('thead') ? 'th' : 'td');
+    cell.innerHTML = '<br>';
+    tr.children[idx].parentNode.insertBefore(cell, tr.children[idx].nextSibling);
+  });
+  saveDocTableContent(table);
+}
+
+function addDocTableColLeft(btn){
+  const td = btn.closest('td,th');
+  const table = td.closest('table');
+  const idx = Array.from(td.parentNode.children).indexOf(td);
+  table.querySelectorAll('tr').forEach(tr=>{
+    const cell = document.createElement(tr.closest('thead') ? 'th' : 'td');
+    cell.innerHTML = '<br>';
+    tr.children[idx].parentNode.insertBefore(cell, tr.children[idx]);
+  });
+  saveDocTableContent(table);
+}
+
+function addDocTableRow(btn){
+  const td = btn.closest('td,th');
+  const table = td.closest('table');
+  const colCount = table.querySelector('tr').children.length;
+  const tr = document.createElement('tr');
+  for(let i=0;i<colCount;i++){
+    const cell = document.createElement('td');
+    cell.innerHTML = '<br>';
+    tr.appendChild(cell);
+  }
+  const tbody = table.querySelector('tbody') || table;
+  tbody.appendChild(tr);
+  saveDocTableContent(table);
+}
+
+function addDocTableRowAbove(btn){
+  const td = btn.closest('td,th');
+  const table = td.closest('table');
+  const colCount = table.querySelector('tr').children.length;
+  const tr = document.createElement('tr');
+  for(let i=0;i<colCount;i++){
+    const cell = document.createElement('td');
+    cell.innerHTML = '<br>';
+    tr.appendChild(cell);
+  }
+  td.closest('tr').parentNode.insertBefore(tr, td.closest('tr'));
+  saveDocTableContent(table);
+}
+
+function deleteDocTableCol(btn){
+  const td = btn.closest('td,th');
+  const table = td.closest('table');
+  if(table.querySelectorAll('tr:first-child th, tr:first-child td').length <= 1) return;
+  const idx = Array.from(td.parentNode.children).indexOf(td);
+  table.querySelectorAll('tr').forEach(tr=>{
+    if(tr.children[idx]) tr.children[idx].remove();
+  });
+  saveDocTableContent(table);
+}
+
+function deleteDocTableRow(btn){
+  const tr = btn.closest('tr');
+  const table = tr.closest('table');
+  if(table.querySelectorAll('tbody tr').length <= 1 && !tr.closest('thead')) return;
+  if(tr.closest('thead')){
+    const tbody = table.querySelector('tbody');
+    if(tbody) tbody.remove();
+    table.remove();
+  } else {
+    tr.remove();
+  }
+  saveDocTableContent(table);
+}
+
+function saveDocTableContent(table){
+  const editor = table.closest('.doc-editor');
+  if(!editor) return;
+  const pId = editor.id.replace('doc-','').split('-')[0];
+  const dId = editor.id.replace('doc-','');
+  updatePlainDocHTML(pId, dId, editor.innerHTML);
+}
+
+function initDocTableListeners(){
+  document.addEventListener('mouseover', function(e){
+    const td = e.target.closest('.doc-table td, .doc-table th');
+    document.querySelectorAll('.doc-table .cell-actions').forEach(el=>el.remove());
+    if(!td) return;
+    const table = td.closest('table');
+    const isLastCol = td.cellIndex === td.parentNode.children.length - 1;
+    const isLastRow = td.closest('tbody') ? td.closest('tr').rowIndex === table.rows.length - 1 : false;
+    const isFirstRow = td.closest('tr').rowIndex === 0;
+    
+    let html = '<div class="cell-actions" style="position:absolute;display:flex;gap:2px;z-index:50;pointer-events:auto;">';
+    html += `<button class="btn-ghost btn-icon" style="width:20px;height:20px;padding:0;font-size:11px;background:var(--bg);border:1px solid var(--line);border-radius:4px;" onclick="addDocTableRowAbove(this)" title="上方插入列">↑</button>`;
+    html += `<button class="btn-ghost btn-icon" style="width:20px;height:20px;padding:0;font-size:11px;background:var(--bg);border:1px solid var(--line);border-radius:4px;" onclick="addDocTableRow(this)" title="下方插入列">↓</button>`;
+    html += `<button class="btn-ghost btn-icon" style="width:20px;height:20px;padding:0;font-size:11px;background:var(--bg);border:1px solid var(--line);border-radius:4px;" onclick="addDocTableColLeft(this)" title="左方插入欄">←</button>`;
+    html += `<button class="btn-ghost btn-icon" style="width:20px;height:20px;padding:0;font-size:11px;background:var(--bg);border:1px solid var(--line);border-radius:4px;" onclick="addDocTableCol(this)" title="右方插入欄">→</button>`;
+    html += `<button class="btn-ghost btn-icon" style="width:20px;height:20px;padding:0;font-size:11px;background:var(--bg);border:1px solid var(--line);border-radius:4px;color:var(--red);" onclick="deleteDocTableRow(this)" title="刪除列">✕</button>`;
+    html += `<button class="btn-ghost btn-icon" style="width:20px;height:20px;padding:0;font-size:11px;background:var(--bg);border:1px solid var(--line);border-radius:4px;color:var(--red);" onclick="deleteDocTableCol(this)" title="刪除欄">✕</button>`;
+    html += '</div>';
+    
+    td.style.position = 'relative';
+    td.insertAdjacentHTML('beforeend', html);
+  });
+  
+  document.addEventListener('mouseout', function(e){
+    const td = e.target.closest('.doc-table td, .doc-table th');
+    if(!td) return;
+    const related = e.relatedTarget;
+    if(related && td.contains(related)) return;
+    setTimeout(()=>{
+      if(!td.matches(':hover')) td.querySelectorAll('.cell-actions').forEach(el=>el.remove());
+    }, 200);
+  });
+}
+
+initDocTableListeners();
 
 function updatePlainDocHTML(pId,dId,html){
   const p=DB.projects.find(x=>x.id===pId); const d=p.docs.find(x=>x.id===dId);

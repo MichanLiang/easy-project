@@ -426,29 +426,49 @@ function saveDocSelection(){
   const sel = window.getSelection();
   if(!sel.rangeCount) return;
   const r = sel.getRangeAt(0);
-  _docSelData = {
-    startContainer: r.startContainer,
-    startOffset: r.startOffset,
-    endContainer: r.endContainer,
-    endOffset: r.endOffset
-  };
+  const editor = r.startContainer.nodeType === 3
+    ? r.startContainer.parentElement.closest('.doc-editor')
+    : r.startContainer.closest?.('.doc-editor') || (r.startContainer.classList?.contains('doc-editor') ? r.startContainer : null);
+  if(!editor) return;
+  const preRange = document.createRange();
+  preRange.selectNodeContents(editor);
+  preRange.setEnd(r.startContainer, r.startOffset);
+  const start = preRange.toString().length;
+  const end = start + r.toString().length;
+  _docSelData = { editorId: editor.id, start: start, end: end };
 }
 
 function restoreDocSelection(){
   if(!_docSelData) return false;
-  try{
-    const editor = _docSelData.startContainer.nodeType === 3
-      ? _docSelData.startContainer.parentElement.closest('.doc-editor')
-      : _docSelData.startContainer.closest('.doc-editor');
-    if(editor) editor.focus();
-    const range = document.createRange();
-    range.setStart(_docSelData.startContainer, _docSelData.startOffset);
-    range.setEnd(_docSelData.endContainer, _docSelData.endOffset);
-    const sel = window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(range);
-    return true;
-  }catch(e){ return false; }
+  const editor = document.getElementById(_docSelData.editorId);
+  if(!editor) return false;
+  editor.focus();
+  const textNodes = [];
+  const walk = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null);
+  let node;
+  while(node = walk.nextNode()) textNodes.push(node);
+  let charCount = 0, startNode = null, startOff = 0, endNode = null, endOff = 0;
+  for(const tn of textNodes){
+    const len = tn.textContent.length;
+    if(!startNode && charCount + len >= _docSelData.start){
+      startNode = tn;
+      startOff = _docSelData.start - charCount;
+    }
+    if(charCount + len >= _docSelData.end){
+      endNode = tn;
+      endOff = _docSelData.end - charCount;
+      break;
+    }
+    charCount += len;
+  }
+  if(!startNode || !endNode) return false;
+  const range = document.createRange();
+  range.setStart(startNode, startOff);
+  range.setEnd(endNode, endOff);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+  return true;
 }
 
 function focusFontSizeInput(editorId){
@@ -498,18 +518,14 @@ function applyDocFontSizeLive(editorId, val){
   range.deleteContents();
   range.insertNode(span);
   
-  const newRange = document.createRange();
-  newRange.selectNodeContents(span);
-  sel.removeAllRanges();
-  sel.addRange(newRange);
-  _docSelData = {
-    startContainer: newRange.startContainer,
-    startOffset: newRange.startOffset,
-    endContainer: newRange.endContainer,
-    endOffset: newRange.endOffset
-  };
-  
   const editor = document.getElementById(editorId);
+  const selText = span.textContent;
+  const preRange = document.createRange();
+  preRange.selectNodeContents(editor);
+  preRange.setEnd(range.startContainer, range.startOffset);
+  const startPos = preRange.toString().length;
+  _docSelData = { editorId: editorId, start: startPos, end: startPos + selText.length };
+  
   if(editor) updatePlainDocHTML(editorId.replace('doc-','').split('-')[0], editorId.replace('doc-',''), editor.innerHTML);
 }
 
@@ -531,19 +547,15 @@ function applyDocFontSize(editorId, val){
   range.deleteContents();
   range.insertNode(span);
   
-  const newRange = document.createRange();
-  newRange.selectNodeContents(span);
-  sel.removeAllRanges();
-  sel.addRange(newRange);
-  _docSelData = {
-    startContainer: newRange.startContainer,
-    startOffset: newRange.startOffset,
-    endContainer: newRange.endContainer,
-    endOffset: newRange.endOffset
-  };
+  const editor = document.getElementById(editorId);
+  const selText = span.textContent;
+  const preRange = document.createRange();
+  preRange.selectNodeContents(editor);
+  preRange.setEnd(range.startContainer, range.startOffset);
+  const startPos = preRange.toString().length;
+  _docSelData = { editorId: editorId, start: startPos, end: startPos + selText.length };
   
   document.getElementById('fontSizeInput-'+editorId).value = px;
-  const editor = document.getElementById(editorId);
   if(editor) updatePlainDocHTML(editorId.replace('doc-','').split('-')[0], editorId.replace('doc-',''), editor.innerHTML);
 }
 

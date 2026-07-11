@@ -430,12 +430,34 @@ function saveDocSelection(){
     ? r.startContainer.parentElement.closest('.doc-editor')
     : r.startContainer.closest?.('.doc-editor') || (r.startContainer.classList?.contains('doc-editor') ? r.startContainer : null);
   if(!editor) return;
-  const preRange = document.createRange();
-  preRange.selectNodeContents(editor);
-  preRange.setEnd(r.startContainer, r.startOffset);
-  const start = preRange.toString().length;
-  const end = start + r.toString().length;
-  _docSelData = { editorId: editor.id, start: start, end: end };
+  _docSelData = {
+    editorId: editor.id,
+    text: r.toString(),
+    start: getTextOffset(editor, r.startContainer, r.startOffset),
+    end: getTextOffset(editor, r.endContainer, r.endOffset)
+  };
+}
+
+function getTextOffset(editor, node, offset){
+  const walk = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null);
+  let count = 0, n;
+  while(n = walk.nextNode()){
+    if(n === node) return count + offset;
+    count += n.textContent.length;
+  }
+  return count;
+}
+
+function getTextNodeAtOffset(editor, targetOffset){
+  const walk = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null);
+  let count = 0, n;
+  while(n = walk.nextNode()){
+    if(count + n.textContent.length >= targetOffset){
+      return { node: n, offset: targetOffset - count };
+    }
+    count += n.textContent.length;
+  }
+  return null;
 }
 
 function restoreDocSelection(){
@@ -443,28 +465,12 @@ function restoreDocSelection(){
   const editor = document.getElementById(_docSelData.editorId);
   if(!editor) return false;
   editor.focus();
-  const textNodes = [];
-  const walk = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null);
-  let node;
-  while(node = walk.nextNode()) textNodes.push(node);
-  let charCount = 0, startNode = null, startOff = 0, endNode = null, endOff = 0;
-  for(const tn of textNodes){
-    const len = tn.textContent.length;
-    if(!startNode && charCount + len >= _docSelData.start){
-      startNode = tn;
-      startOff = _docSelData.start - charCount;
-    }
-    if(charCount + len >= _docSelData.end){
-      endNode = tn;
-      endOff = _docSelData.end - charCount;
-      break;
-    }
-    charCount += len;
-  }
-  if(!startNode || !endNode) return false;
+  const start = getTextNodeAtOffset(editor, _docSelData.start);
+  const end = getTextNodeAtOffset(editor, _docSelData.end);
+  if(!start || !end) return false;
   const range = document.createRange();
-  range.setStart(startNode, startOff);
-  range.setEnd(endNode, endOff);
+  range.setStart(start.node, start.offset);
+  range.setEnd(end.node, end.offset);
   const sel = window.getSelection();
   sel.removeAllRanges();
   sel.addRange(range);
@@ -503,12 +509,58 @@ function decDocFontSize(editorId){
 function applyDocFontSizeLive(editorId, val){
   const px = parseInt(val);
   if(isNaN(px) || px < 1) return;
+  
+  const editor = document.getElementById(editorId);
+  if(!editor) return;
+  
+  if(!_docSelData || _docSelData.editorId !== editorId) return;
+  
+  const start = getTextNodeAtOffset(editor, _docSelData.start);
+  const end = getTextNodeAtOffset(editor, _docSelData.end);
+  if(!start || !end) return;
+  
+  const range = document.createRange();
+  range.setStart(start.node, start.offset);
+  range.setEnd(end.node, end.offset);
+  
+  const selText = range.toString();
+  if(!selText) return;
+  
+  const contents = range.cloneContents();
+  const div = document.createElement('div');
+  div.appendChild(contents);
+  const span = document.createElement('span');
+  span.setAttribute('style','font-size:'+px+'px !important');
+  span.innerHTML = div.innerHTML;
+  range.deleteContents();
+  range.insertNode(span);
+  
+  const sel = window.getSelection();
+  const newRange = document.createRange();
+  newRange.selectNodeContents(span);
+  sel.removeAllRanges();
+  sel.addRange(newRange);
+  
+  _docSelData = {
+    editorId: editorId,
+    text: selText,
+    start: getTextOffset(editor, newRange.startContainer, newRange.startOffset),
+    end: getTextOffset(editor, newRange.endContainer, newRange.endOffset)
+  };
+  
+  updatePlainDocHTML(editorId.replace('doc-','').split('-')[0], editorId.replace('doc-',''), editor.innerHTML);
+}
+
+function applyDocFontSize(editorId, val){
+  const px = parseInt(val);
+  if(isNaN(px) || px < 1) return;
   if(!restoreDocSelection()) return;
   const sel = window.getSelection();
   if(!sel.rangeCount) return;
   const range = sel.getRangeAt(0);
   if(range.collapsed) return;
   
+  const editor = document.getElementById(editorId);
   const contents = range.cloneContents();
   const div = document.createElement('div');
   div.appendChild(contents);
@@ -518,45 +570,20 @@ function applyDocFontSizeLive(editorId, val){
   range.deleteContents();
   range.insertNode(span);
   
-  const editor = document.getElementById(editorId);
-  const selText = span.textContent;
-  const preRange = document.createRange();
-  preRange.selectNodeContents(editor);
-  preRange.setEnd(range.startContainer, range.startOffset);
-  const startPos = preRange.toString().length;
-  _docSelData = { editorId: editorId, start: startPos, end: startPos + selText.length };
+  const newRange = document.createRange();
+  newRange.selectNodeContents(span);
+  sel.removeAllRanges();
+  sel.addRange(newRange);
   
-  if(editor) updatePlainDocHTML(editorId.replace('doc-','').split('-')[0], editorId.replace('doc-',''), editor.innerHTML);
-}
-
-function applyDocFontSize(editorId, val){
-  const px = parseInt(val);
-  if(isNaN(px) || px < 1) return;
-  restoreDocSelection();
-  const sel = window.getSelection();
-  if(!sel.rangeCount) return;
-  const range = sel.getRangeAt(0);
-  if(range.collapsed) return;
-  
-  const contents = range.cloneContents();
-  const div = document.createElement('div');
-  div.appendChild(contents);
-  const span = document.createElement('span');
-  span.setAttribute('style','font-size:'+px+'px !important');
-  span.innerHTML = div.innerHTML;
-  range.deleteContents();
-  range.insertNode(span);
-  
-  const editor = document.getElementById(editorId);
-  const selText = span.textContent;
-  const preRange = document.createRange();
-  preRange.selectNodeContents(editor);
-  preRange.setEnd(range.startContainer, range.startOffset);
-  const startPos = preRange.toString().length;
-  _docSelData = { editorId: editorId, start: startPos, end: startPos + selText.length };
+  _docSelData = {
+    editorId: editorId,
+    text: span.textContent,
+    start: getTextOffset(editor, newRange.startContainer, newRange.startOffset),
+    end: getTextOffset(editor, newRange.endContainer, newRange.endOffset)
+  };
   
   document.getElementById('fontSizeInput-'+editorId).value = px;
-  if(editor) updatePlainDocHTML(editorId.replace('doc-','').split('-')[0], editorId.replace('doc-',''), editor.innerHTML);
+  updatePlainDocHTML(editorId.replace('doc-','').split('-')[0], editorId.replace('doc-',''), editor.innerHTML);
 }
 
 function docExecWithColor(cmd, val, indicatorId, paletteId){

@@ -3,7 +3,7 @@ function getWeekRange(offset){
   const now = new Date();
   const dayOfWeek = now.getDay() || 7;
   const monday = new Date(now);
-  monday.setDate(now.getDate() - dayOfWeek + 1 + (offset || 0));
+  monday.setDate(now.getDate() - dayOfWeek + 1 + (offset || 0) * 7);
   monday.setHours(0,0,0,0);
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);

@@ -478,7 +478,12 @@ function applyDocFontSizeLive(editorId, val){
   range.deleteContents();
   range.insertNode(span);
   
+  const newRange = document.createRange();
+  newRange.selectNodeContents(span);
+  sel.removeAllRanges();
+  sel.addRange(newRange);
   saveDocSelection();
+  
   const editor = document.getElementById(editorId);
   if(editor) updatePlainDocHTML(editorId.replace('doc-','').split('-')[0], editorId.replace('doc-',''), editor.innerHTML);
 }

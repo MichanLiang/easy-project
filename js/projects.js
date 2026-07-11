@@ -369,7 +369,7 @@ function renderPlainDoc(p,d){
       <div style="display:flex;align-items:center;gap:0;">
         <button class="btn-ghost btn-icon btn-sm" onmousedown="event.preventDefault();saveDocSelection();decDocFontSize('${id}')" style="width:20px;height:24px;font-size:14px;font-weight:bold;border:1px solid var(--line);border-radius:4px 0 0 4px;background:var(--bg);">−</button>
         <input type="number" id="fontSizeInput-${id}" list="fontSizeList-${id}" min="8" max="200" value="14"
-          onmousedown="saveDocSelection()" onfocus="saveDocSelection()"
+          onmousedown="event.preventDefault();saveDocSelection();focusFontSizeInput('${id}')"
           onkeydown="if(event.key==='Enter'){applyDocFontSizeLive('${id}',this.value);this.blur();}"
           style="width:42px;padding:4px 2px;border:1px solid var(--line);border-left:none;border-right:none;font-size:12px;background:var(--bg);text-align:center;" placeholder="px">
         <button class="btn-ghost btn-icon btn-sm" onmousedown="event.preventDefault();saveDocSelection();incDocFontSize('${id}')" style="width:20px;height:24px;font-size:14px;font-weight:bold;border:1px solid var(--line);border-radius:0 4px 4px 0;background:var(--bg);">+</button>
@@ -420,39 +420,40 @@ function renderPlainDoc(p,d){
   </div>`;
 }
 
-let _docSel = null;
 let _docSelData = null;
 
 function saveDocSelection(){
   const sel = window.getSelection();
-  if(sel.rangeCount > 0){
-    _docSel = sel.getRangeAt(0);
-    const r = _docSel;
-    _docSelData = {
-      startContainer: r.startContainer,
-      startOffset: r.startOffset,
-      endContainer: r.endContainer,
-      endOffset: r.endOffset
-    };
-  }
+  if(!sel.rangeCount) return;
+  const r = sel.getRangeAt(0);
+  _docSelData = {
+    startContainer: r.startContainer,
+    startOffset: r.startOffset,
+    endContainer: r.endContainer,
+    endOffset: r.endOffset
+  };
 }
 
 function restoreDocSelection(){
-  if(!_docSelData) return;
-  const sel = window.getSelection();
+  if(!_docSelData) return false;
   try{
+    const editor = _docSelData.startContainer.nodeType === 3
+      ? _docSelData.startContainer.parentElement.closest('.doc-editor')
+      : _docSelData.startContainer.closest('.doc-editor');
+    if(editor) editor.focus();
     const range = document.createRange();
     range.setStart(_docSelData.startContainer, _docSelData.startOffset);
     range.setEnd(_docSelData.endContainer, _docSelData.endOffset);
+    const sel = window.getSelection();
     sel.removeAllRanges();
     sel.addRange(range);
-    _docSel = range;
-  }catch(e){
-    if(_docSel){
-      sel.removeAllRanges();
-      sel.addRange(_docSel);
-    }
-  }
+    return true;
+  }catch(e){ return false; }
+}
+
+function focusFontSizeInput(editorId){
+  const input = document.getElementById('fontSizeInput-'+editorId);
+  if(input) setTimeout(()=>input.focus(), 0);
 }
 
 function toggleDocPalette(id){
@@ -482,7 +483,7 @@ function decDocFontSize(editorId){
 function applyDocFontSizeLive(editorId, val){
   const px = parseInt(val);
   if(isNaN(px) || px < 1) return;
-  restoreDocSelection();
+  if(!restoreDocSelection()) return;
   const sel = window.getSelection();
   if(!sel.rangeCount) return;
   const range = sel.getRangeAt(0);
@@ -501,7 +502,12 @@ function applyDocFontSizeLive(editorId, val){
   newRange.selectNodeContents(span);
   sel.removeAllRanges();
   sel.addRange(newRange);
-  saveDocSelection();
+  _docSelData = {
+    startContainer: newRange.startContainer,
+    startOffset: newRange.startOffset,
+    endContainer: newRange.endContainer,
+    endOffset: newRange.endOffset
+  };
   
   const editor = document.getElementById(editorId);
   if(editor) updatePlainDocHTML(editorId.replace('doc-','').split('-')[0], editorId.replace('doc-',''), editor.innerHTML);
@@ -529,7 +535,12 @@ function applyDocFontSize(editorId, val){
   newRange.selectNodeContents(span);
   sel.removeAllRanges();
   sel.addRange(newRange);
-  saveDocSelection();
+  _docSelData = {
+    startContainer: newRange.startContainer,
+    startOffset: newRange.startOffset,
+    endContainer: newRange.endContainer,
+    endOffset: newRange.endOffset
+  };
   
   document.getElementById('fontSizeInput-'+editorId).value = px;
   const editor = document.getElementById(editorId);

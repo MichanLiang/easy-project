@@ -36,6 +36,9 @@ function viewChat(){
             <div class="cn">${escapeHTML(g.name)}</div>
             <div style="font-size:11px;color:var(--ink-faint);">${g.memberIds.length} 位成員</div>
           </div>
+          <button class="btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();openEditGroupModal('${g.id}')" title="群組設定">
+            <span class="icon">${getIcon('settings')}</span>
+          </button>
         </div>`).join('')}
       ${contacts.map(c => `
         <div class="chat-contact ${state.chatContact === c.id ? 'active' : ''}" onclick="selectChatContact('${c.id}')">
@@ -132,6 +135,66 @@ function createGroupChat(){
   closeModal();
   state.chatContact = 'group:' + groupId;
   render();
+}
+
+function openEditGroupModal(groupId){
+  const g = (DB.chatGroups||[]).find(x=>x.id===groupId);
+  if(!g) return;
+  const user = auth.currentUser;
+  const contacts = DB.members.filter(m => m.id !== user?.uid && m.status === 'accepted');
+  
+  openModal(`
+    <div class="modal-head"><h3>群組設定</h3></div>
+    <div class="modal-body">
+      <div class="field"><label>群組名稱</label><input type="text" id="editGrpName" value="${escapeHTML(g.name)}"></div>
+      <div class="field"><label>成員</label>
+        <div class="member-pick" id="editGrpMembers">
+          ${contacts.map(m=>`<div class="mchip ${g.memberIds.includes(m.id)?'on':''}" data-id="${m.id}" onclick="toggleChip(this)">${avatarHTML(m.id,22)} ${m.name}</div>`).join('')}
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-danger" onclick="deleteGroupChat('${groupId}')">
+        <span class="icon">${getIcon('trash')}</span>
+        刪除群組
+      </button>
+      <div style="flex:1"></div>
+      <button class="btn" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveGroupChat('${groupId}')">
+        <span class="icon">${getIcon('save')}</span>
+        儲存
+      </button>
+    </div>
+  `);
+  setTimeout(initIcons, 10);
+}
+
+function saveGroupChat(groupId){
+  const g = (DB.chatGroups||[]).find(x=>x.id===groupId);
+  if(!g) return;
+  const user = auth.currentUser;
+  const name = document.getElementById('editGrpName').value.trim();
+  if(!name){ toast('請輸入群組名稱'); return; }
+  const memberIds = Array.from(document.querySelectorAll('#editGrpMembers .mchip.on')).map(el=>el.dataset.id);
+  if(!memberIds.includes(user.uid)) memberIds.push(user.uid);
+  if(memberIds.length < 2){ toast('至少需要兩位成員'); return; }
+  
+  g.name = name;
+  g.memberIds = memberIds;
+  persist();
+  closeModal();
+  render();
+  toast('群組已更新');
+}
+
+function deleteGroupChat(groupId){
+  if(!confirm('確定要刪除此群組嗎？')) return;
+  DB.chatGroups = (DB.chatGroups||[]).filter(x=>x.id!==groupId);
+  if(state.chatContact === 'group:'+groupId) state.chatContact = null;
+  persist();
+  closeModal();
+  render();
+  toast('群組已刪除');
 }
 
 function selectChatContact(id){

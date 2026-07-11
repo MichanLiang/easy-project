@@ -484,7 +484,68 @@ function insertDocTable(editorId){
     insertNode.parentNode.insertBefore(table, insertNode.nextSibling);
     insertNode.parentNode.insertBefore(br, table.nextSibling);
   }
-  updatePlainDocHTML(editorId.replace('doc-','').split('-')[0], editorId.replace('doc-',''), editor.innerHTML);
+  addTableResizeHandles(table);
+}
+
+function addTableResizeHandles(table){
+  if(table.querySelector('.col-resize-handle')) return;
+  const thead = table.querySelector('thead');
+  if(!thead) return;
+  const headerCells = thead.querySelectorAll('th');
+  headerCells.forEach((th,i)=>{
+    const handle = document.createElement('div');
+    handle.className = 'col-resize-handle';
+    handle.style.cssText = 'position:absolute;right:-3px;top:0;bottom:0;width:6px;cursor:col-resize;z-index:10;';
+    handle.addEventListener('mousedown',function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      const startX = e.clientX;
+      const startW = th.offsetWidth;
+      const tableW = table.offsetWidth;
+      function onMove(ev){
+        const diff = ev.clientX - startX;
+        th.style.width = Math.max(40, startW + diff) + 'px';
+        th.style.minWidth = th.style.width;
+        th.style.maxWidth = th.style.width;
+      }
+      function onUp(){
+        document.removeEventListener('mousemove',onMove);
+        document.removeEventListener('mouseup',onUp);
+        saveDocTableContent(table);
+      }
+      document.addEventListener('mousemove',onMove);
+      document.addEventListener('mouseup',onUp);
+    });
+    th.style.position = 'relative';
+    th.appendChild(handle);
+  });
+  
+  const rows = table.querySelectorAll('tbody tr');
+  rows.forEach(tr=>{
+    const handle = document.createElement('div');
+    handle.className = 'row-resize-handle';
+    handle.style.cssText = 'position:absolute;left:0;right:0;bottom:-3px;height:6px;cursor:row-resize;z-index:10;';
+    handle.addEventListener('mousedown',function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      const startY = e.clientY;
+      const startH = tr.offsetHeight;
+      function onMove(ev){
+        const diff = ev.clientY - startY;
+        tr.style.height = Math.max(24, startH + diff) + 'px';
+        tr.querySelectorAll('td,th').forEach(c=>{c.style.height=tr.style.height;});
+      }
+      function onUp(){
+        document.removeEventListener('mousemove',onMove);
+        document.removeEventListener('mouseup',onUp);
+        saveDocTableContent(table);
+      }
+      document.addEventListener('mousemove',onMove);
+      document.addEventListener('mouseup',onUp);
+    });
+    tr.style.position = 'relative';
+    tr.appendChild(handle);
+  });
 }
 
 function addDocTableCol(btn){
@@ -497,6 +558,7 @@ function addDocTableCol(btn){
     tr.children[idx].parentNode.insertBefore(cell, tr.children[idx].nextSibling);
   });
   saveDocTableContent(table);
+  addTableResizeHandles(table);
 }
 
 function addDocTableColLeft(btn){
@@ -509,6 +571,7 @@ function addDocTableColLeft(btn){
     tr.children[idx].parentNode.insertBefore(cell, tr.children[idx]);
   });
   saveDocTableContent(table);
+  addTableResizeHandles(table);
 }
 
 function addDocTableRow(btn){
@@ -524,6 +587,7 @@ function addDocTableRow(btn){
   const tbody = table.querySelector('tbody') || table;
   tbody.appendChild(tr);
   saveDocTableContent(table);
+  addTableResizeHandles(table);
 }
 
 function addDocTableRowAbove(btn){
@@ -538,6 +602,7 @@ function addDocTableRowAbove(btn){
   }
   td.closest('tr').parentNode.insertBefore(tr, td.closest('tr'));
   saveDocTableContent(table);
+  addTableResizeHandles(table);
 }
 
 function deleteDocTableCol(btn){
@@ -608,6 +673,10 @@ function initDocTableListeners(){
 }
 
 initDocTableListeners();
+
+function restoreDocTables(){
+  document.querySelectorAll('.doc-table').forEach(t=>addTableResizeHandles(t));
+}
 
 function updatePlainDocHTML(pId,dId,html){
   const p=DB.projects.find(x=>x.id===pId); const d=p.docs.find(x=>x.id===dId);

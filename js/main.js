@@ -68,6 +68,7 @@ function toggleSidebarMobile(){
 
 function afterRender(){
   setTimeout(initIcons, 10);
+  setTimeout(restoreDocTables, 20);
   if(state.route==='project'){
     const p = DB.projects.find(x=>x.id===state.projectId);
     const d = p ? p.docs.find(x=>x.id===state.docId) : null;

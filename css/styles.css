@@ -1976,10 +1976,7 @@ svg.edges{
     min-height:500px;
   }
   
-  /* 手機隱藏 sidebar 折疊按鈕和三點選單 */
-  .sidebar-head .collapse-btn{
-    display:none !important;
-  }
+  /* 手機隱藏 sidebar 三點選單，保留折疊按鈕可收起 */
   .sidebar-footer .collapse-btn{
     display:none !important;
   }

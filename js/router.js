@@ -3,7 +3,7 @@ const state = {
   route: 'projects',   // projects | project | calendar | todos | chat | settings | backlog | meetings | trash
   projectId: null,
   docId: null,
-  sidebarCollapsed: false,
+  sidebarCollapsed: window.innerWidth <= 768,
   backlogFilter: 'all',
   chatContact: null,
   calMonth: new Date().getMonth(),

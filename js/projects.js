@@ -454,7 +454,6 @@ function insertDocTable(editorId){
   editor.focus();
   const table = document.createElement('table');
   table.className = 'doc-table';
-  table.setAttribute('contenteditable', 'false');
   let html = '<thead><tr>';
   for(let c=0;c<3;c++) html += '<th><br></th>';
   html += '</tr></thead><tbody>';

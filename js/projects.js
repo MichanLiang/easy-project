@@ -446,7 +446,7 @@ function applyDocFontSize(editorId, val){
   const range = sel.getRangeAt(0);
   if(range.collapsed){
     const span = document.createElement('span');
-    span.style.fontSize = px + 'px';
+    span.setAttribute('style','font-size:'+px+'px !important');
     span.innerHTML = '\u200B';
     range.insertNode(span);
     range.setStartAfter(span);
@@ -454,10 +454,13 @@ function applyDocFontSize(editorId, val){
     sel.removeAllRanges();
     sel.addRange(range);
   } else {
-    const frag = range.extractContents();
+    const contents = range.cloneContents();
+    const div = document.createElement('div');
+    div.appendChild(contents);
     const span = document.createElement('span');
-    span.style.fontSize = px + 'px';
-    span.appendChild(frag);
+    span.setAttribute('style','font-size:'+px+'px !important');
+    span.innerHTML = div.innerHTML;
+    range.deleteContents();
     range.insertNode(span);
   }
   document.getElementById('fontSizeInput-'+editorId).value = px;

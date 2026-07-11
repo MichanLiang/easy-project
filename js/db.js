@@ -60,8 +60,7 @@ async function loadUserDataFromFirestore(){
     }
     
     persist();
-    setupRealtimeListeners();
-    setupTodoListeners();
+    loadMembersProjects();
   } catch (error) {
     console.error('載入用戶資料失敗:', error);
   }
@@ -108,122 +107,55 @@ function autoSync(){
   }, 1000); // 1秒後自動同步
 }
 
-// ===== 即時同步：监听自己和成員的文件 =====
-let lastLocalWrite = null; // 記錄最後一次本地寫入的資料
-
-function setupRealtimeListeners(){
+// ===== 手動刷新：按了才從 Firestore 重新載入 =====
+async function manualRefresh(){
   const user = auth.currentUser;
   if(!user || state.isGuest) return;
-
-  // 1. 監聽自己的文件
-  firebase.firestore().collection('users').doc(user.uid)
-    .onSnapshot(snap => {
-      if(snap.metadata.fromCache || snap.metadata.hasPendingWrites) return;
-      const data = snap.data();
-      if(!data) return;
-
-      // 比對是否跟上次本地寫入一樣 → 是就跳過
-      const current = JSON.stringify({p:data.projects,t:data.todos,m:data.meetings,b:data.backlogItems,tr:data.trash});
-      if(lastLocalWrite === current){ lastLocalWrite = null; return; }
-
-      const before = JSON.stringify({p:DB.projects,t:DB.todos,m:DB.meetings,b:DB.backlogItems,tr:DB.trash});
-
-      if(data.projects){
-        const incoming = data.projects;
-        const local = DB.projects;
-        const incomingMap = {};
-        incoming.forEach(p => { incomingMap[p.id] = p; });
-
-        const merged = [];
-        for(const ip of incoming){
-          const lp = local.find(p => p.id === ip.id);
-          if(!lp){
-            merged.push(ip);
-          } else {
-            const localTime = new Date(lp.updatedAt||0).getTime();
-            const incomingTime = new Date(ip.updatedAt||0).getTime();
-            merged.push(incomingTime >= localTime ? ip : lp);
-          }
-        }
-        for(const lp of local){
-          if(!incomingMap[lp.id] && !lp.updatedAt){
-            merged.push(lp);
-          }
-        }
-        DB.projects = merged;
-      }
-
-      if(data.todos) DB.todos = data.todos;
-      if(data.meetings) DB.meetings = data.meetings;
-      if(data.backlogItems) DB.backlogItems = data.backlogItems;
-      if(data.trash) DB.trash = data.trash;
-      if(data.dismissedBacklogs) DB.dismissedBacklogs = data.dismissedBacklogs;
-      if(data.members){
-        const prevMembers = JSON.stringify(DB.members.map(m=>({id:m.id,status:m.status})));
-        DB.members = data.members;
-        const newMembers = JSON.stringify(DB.members.map(m=>({id:m.id,status:m.status})));
-        if(prevMembers !== newMembers){ setupMemberListeners(); setupTodoListeners(); }
-      }
-
-      const after = JSON.stringify({p:DB.projects,t:DB.todos,m:DB.meetings,b:DB.backlogItems,tr:DB.trash});
-      if(before !== after){
-        persist();
-        render();
-      }
-    });
-
-  setupMemberListeners();
+  try {
+    const docRef = getUserDocRef();
+    const doc = await docRef.get();
+    if(doc.exists){
+      const data = doc.data();
+      DB.projects = data.projects || [];
+      DB.backlogItems = data.backlogItems || [];
+      DB.meetings = data.meetings || [];
+      DB.todos = data.todos || [];
+      DB.chats = data.chats || {};
+      DB.members = data.members || [];
+      DB.trash = data.trash || [];
+      DB.dismissedBacklogs = data.dismissedBacklogs || [];
+    }
+    persist();
+    render();
+    toast('已更新');
+  } catch(e){
+    console.error('刷新失敗:', e);
+    toast('刷新失敗');
+  }
 }
 
-function setupMemberListeners(){
-  memberUnsubscibes.forEach(unsub => unsub());
-  memberUnsubscibes = [];
-
+// 載入成員的共用專案（登入時執行一次）
+async function loadMembersProjects(){
   const user = auth.currentUser;
   if(!user || state.isGuest) return;
-
-  const acceptedMembers = DB.members.filter(m => m.status === 'accepted' && m.id);
-  for(const member of acceptedMembers){
-    const unsub = firebase.firestore().collection('users').doc(member.id)
-      .onSnapshot(snap => {
-        if(snap.metadata.fromCache || snap.metadata.hasPendingWrites) return;
-        const data = snap.data();
-        if(!data || !data.projects) return;
-
-        const before = JSON.stringify(DB.projects);
-
-        // 找出這個成員擁有的專案 ID
-        const memberProjectIds = new Set(data.projects.map(p => p.id));
-        const myIds = new Set(DB.projects.map(p => p.id));
-
-        // 移除這個成員已刪除的共用專案
-        DB.projects = DB.projects.filter(p => {
-          if(memberProjectIds.has(p.id)) return true; // 遠端還有，保留
-          if(!myIds.has(p.id)) return true; // 不是我們的專案，保留
-          // 我們有但這個成員沒有了 → 成員刪除了，移除
-          return false;
-        });
-
-        // 合併/更新
-        for(const mp of data.projects){
-          const local = DB.projects.find(p => p.id === mp.id);
-          if(local){
-            const localTime = new Date(local.updatedAt||0).getTime();
-            const incomingTime = new Date(mp.updatedAt||0).getTime();
-            if(incomingTime > localTime) Object.assign(local, mp);
-          } else {
-            DB.projects.push(mp);
-          }
+  for(const member of DB.members.filter(m => m.status === 'accepted' && m.id)){
+    try {
+      const snap = await firebase.firestore().collection('users').doc(member.id).get();
+      const data = snap.data();
+      if(!data || !data.projects) continue;
+      for(const mp of data.projects){
+        const local = DB.projects.find(p => p.id === mp.id);
+        if(local){
+          const localTime = new Date(local.updatedAt||0).getTime();
+          const incomingTime = new Date(mp.updatedAt||0).getTime();
+          if(incomingTime > localTime) Object.assign(local, mp);
+        } else {
+          DB.projects.push(mp);
         }
-
-        const after = JSON.stringify(DB.projects);
-        if(before !== after){
-          persist();
-          render();
-        }
-      });
-    memberUnsubscibes.push(unsub);
+      }
+    } catch(e){}
   }
+  persist();
 }
 
 // 從團隊同步成員列表

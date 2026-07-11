@@ -15,6 +15,7 @@ const Icons = {
   
   // Actions
   plus: '<i data-lucide="plus"></i>',
+  refreshCw: '<i data-lucide="refresh-cw"></i>',
   chevronLeft: '<i data-lucide="chevron-left"></i>',
   chevronRight: '<i data-lucide="chevron-right"></i>',
   chevronDown: '<i data-lucide="chevron-down"></i>',

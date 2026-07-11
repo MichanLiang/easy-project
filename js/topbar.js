@@ -20,5 +20,8 @@ function renderTopbar(){
     </button>
     ${crumb}
     <div class="topbar-spacer"></div>
+    <button class="btn-ghost btn-icon btn-sm" onclick="manualRefresh()" title="重新整理">
+      <span class="icon">${getIcon('refreshCw')}</span>
+    </button>
   </div>`;
 }

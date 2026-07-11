@@ -357,8 +357,14 @@ function renderDocView(p,d){
 
 function renderPlainDoc(p,d){
   const id = 'doc-'+d.id;
+  const colors = ['#000000','#434343','#666666','#999999','#B7B7B7','#CCCCCC','#D9D9D9','#EFEFEF','#F3F3F3','#FFFFFF',
+    '#980000','#FF0000','#FF9900','#FFFF00','#00FF00','#00FFFF','#4A86E8','#0000FF','#9900FF','#FF00FF',
+    '#E6B8AF','#F4CCCC','#FCE5CD','#FFF2CC','#D9EAD3','#D0E0E3','#C9DAF8','#CFE2F3','#D9D2E9','#EAD1DC',
+    '#DD7E6B','#EA9999','#F9CB9C','#FFE599','#B6D7A8','#A2C4C9','#A4C2F4','#9FC5E8','#B4A7D6','#D5A6BD',
+    '#CC4125','#E06666','#F6B26B','#FFD966','#93C47D','#76A5AF','#6D9EEB','#6FA8DC','#8E7CC3','#C27BA0',
+    '#A61C00','#CC0000','#E69138','#F1C232','#6AA84F','#45818E','#3C78D8','#3D85C6','#674EA7','#A64D79'];
   return `
-  <div class="card" style="padding:0;border:1px solid var(--line);border-radius:var(--radius-lg);overflow:hidden;">
+  <div class="card" style="padding:0;border:1px solid var(--line);border-radius:var(--radius-lg);overflow:visible;">
     <div class="doc-toolbar" id="toolbar-${id}" style="display:flex;flex-wrap:wrap;gap:2px;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--bg-subtle);">
       <select onchange="docExec('fontSize',this.value);this.blur();" style="padding:4px 6px;border:1px solid var(--line);border-radius:4px;font-size:12px;background:var(--bg);">
         <option value="">大小</option>
@@ -367,8 +373,28 @@ function renderPlainDoc(p,d){
         <option value="5">大</option>
         <option value="7">超大</option>
       </select>
-      <input type="color" value="#000000" onchange="docExec('foreColor',this.value);this.blur();" style="width:28px;height:28px;padding:0;border:1px solid var(--line);border-radius:4px;cursor:pointer;" title="字體顏色">
-      <input type="color" value="#FFFF00" onchange="docExec('hiliteColor',this.value);this.blur();" style="width:28px;height:28px;padding:0;border:1px solid var(--line);border-radius:4px;cursor:pointer;" title="螢光標記">
+      <div class="doc-color-wrap" style="position:relative;">
+        <button class="btn-ghost btn-icon btn-sm" onclick="toggleDocPalette('fg-${id}')" title="字體顏色" style="position:relative;">
+          <span class="icon">${getIcon('font')}</span>
+          <span id="fg-indicator-${id}" style="position:absolute;bottom:2px;left:50%;transform:translateX(-50%);width:14px;height:3px;background:#000;border-radius:1px;"></span>
+        </button>
+        <div id="fg-${id}" class="doc-palette" style="display:none;position:absolute;top:100%;left:0;margin-top:4px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px;box-shadow:0 4px 12px rgba(0,0,0,.15);z-index:100;">
+          <div style="display:grid;grid-template-columns:repeat(10,1fr);gap:2px;">
+            ${colors.map(c=>`<div style="width:18px;height:18px;background:${c};border:1px solid var(--line);border-radius:2px;cursor:pointer;" onclick="docExec('foreColor','${c}');document.getElementById('fg-indicator-${id}').style.background='${c}';toggleDocPalette('fg-${id}')"></div>`).join('')}
+          </div>
+        </div>
+      </div>
+      <div class="doc-color-wrap" style="position:relative;">
+        <button class="btn-ghost btn-icon btn-sm" onclick="toggleDocPalette('hl-${id}')" title="螢光標記" style="position:relative;">
+          <span style="font-size:14px;font-weight:bold;">A</span>
+          <span id="hl-indicator-${id}" style="position:absolute;bottom:2px;left:50%;transform:translateX(-50%);width:14px;height:3px;background:#FFFF00;border-radius:1px;"></span>
+        </button>
+        <div id="hl-${id}" class="doc-palette" style="display:none;position:absolute;top:100%;left:0;margin-top:4px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px;box-shadow:0 4px 12px rgba(0,0,0,.15);z-index:100;">
+          <div style="display:grid;grid-template-columns:repeat(10,1fr);gap:2px;">
+            ${colors.map(c=>`<div style="width:18px;height:18px;background:${c};border:1px solid var(--line);border-radius:2px;cursor:pointer;" onclick="docExec('hiliteColor','${c}');document.getElementById('hl-indicator-${id}').style.background='${c}';toggleDocPalette('hl-${id}')"></div>`).join('')}
+          </div>
+        </div>
+      </div>
       <div style="width:1px;height:24px;background:var(--line);margin:0 4px;"></div>
       <button class="btn-ghost btn-icon btn-sm" onclick="docExec('bold')" title="粗體"><b>B</b></button>
       <button class="btn-ghost btn-icon btn-sm" onclick="docExec('italic')" title="斜體"><i>I</i></button>
@@ -386,6 +412,14 @@ function renderPlainDoc(p,d){
     </div>
     <div id="${id}" class="doc-editor" contenteditable="true" style="min-height:420px;padding:20px;font-size:14px;line-height:1.7;outline:none;overflow-y:auto;" oninput="updatePlainDocHTML('${p.id}','${d.id}',this.innerHTML)">${d.content||'<p><br></p>'}</div>
   </div>`;
+}
+
+function toggleDocPalette(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  const show = el.style.display === 'none';
+  document.querySelectorAll('.doc-palette').forEach(p=>p.style.display='none');
+  if(show) el.style.display = 'block';
 }
 
 function docExec(cmd, val){
@@ -492,3 +526,9 @@ async function loadProjectsFromMembers(){
     console.error('載入專案失敗:', error);
   }
 }
+
+document.addEventListener('click', function(e){
+  if(!e.target.closest('.doc-color-wrap')){
+    document.querySelectorAll('.doc-palette').forEach(p=>p.style.display='none');
+  }
+});

@@ -95,16 +95,12 @@ async function saveUserDataToFirestore(){
 
 // 自動同步到 Firestore
 let syncTimeout = null;
-let isLocalWrite = false;
-let memberUnsubscibes = [];
 
 function autoSync(){
   if(syncTimeout) clearTimeout(syncTimeout);
   syncTimeout = setTimeout(async () => {
-    isLocalWrite = true;
     await saveUserDataToFirestore();
-    setTimeout(()=>{ isLocalWrite = false; }, 500);
-  }, 1000); // 1秒後自動同步
+  }, 1000);
 }
 
 // ===== 手動刷新：按了才從 Firestore 重新載入 =====

@@ -24,7 +24,7 @@ function setupTodoListeners(){
     const unsub = firebase.firestore().collection('users').doc(member.id).collection('todos')
       .where('assignee', '==', user.uid)
       .onSnapshot(snap => {
-        if(snap.metadata.fromCache) return;
+        if(snap.metadata.fromCache || snap.metadata.hasPendingWrites) return;
         const before = JSON.stringify(DB.todos);
 
         const remoteIds = new Set();
@@ -58,7 +58,7 @@ function setupTodoListeners(){
       const unsub2 = firebase.firestore().collection('users').doc(member.id).collection('todos')
         .doc(t.id)
         .onSnapshot(doc => {
-          if(!doc.exists) return;
+          if(!doc.exists || doc.metadata.hasPendingWrites) return;
           const remoteData = doc.data();
           const local = DB.todos.find(x => x.id === t.id);
           if(local && (local.status !== remoteData.status || local.title !== remoteData.title)){

@@ -73,6 +73,8 @@ async function saveUserDataToFirestore(){
   if(!user || state.isGuest) return;
   
   try {
+    // 記錄即將寫入的資料，讓 listener 跳過本次觸發
+    lastLocalWrite = JSON.stringify({p:DB.projects,t:DB.todos,m:DB.meetings,b:DB.backlogItems,tr:DB.trash});
     const docRef = getUserDocRef();
     await docRef.set({
       projects: DB.projects,
@@ -107,16 +109,22 @@ function autoSync(){
 }
 
 // ===== 即時同步：监听自己和成員的文件 =====
+let lastLocalWrite = null; // 記錄最後一次本地寫入的資料
+
 function setupRealtimeListeners(){
   const user = auth.currentUser;
   if(!user || state.isGuest) return;
 
   // 1. 監聽自己的文件
   firebase.firestore().collection('users').doc(user.uid)
-    .onSnapshot({ includeMetadataChanges: true }, (snap) => {
-      if(snap.metadata.fromCache) return;
+    .onSnapshot(snap => {
+      if(snap.metadata.fromCache || snap.metadata.hasPendingWrites) return;
       const data = snap.data();
       if(!data) return;
+
+      // 比對是否跟上次本地寫入一樣 → 是就跳過
+      const current = JSON.stringify({p:data.projects,t:data.todos,m:data.meetings,b:data.backlogItems,tr:data.trash});
+      if(lastLocalWrite === current){ lastLocalWrite = null; return; }
 
       const before = JSON.stringify({p:DB.projects,t:DB.todos,m:DB.meetings,b:DB.backlogItems,tr:DB.trash});
 
@@ -127,7 +135,6 @@ function setupRealtimeListeners(){
         incoming.forEach(p => { incomingMap[p.id] = p; });
 
         const merged = [];
-        // 1. 遠端有的專案：取較新版本
         for(const ip of incoming){
           const lp = local.find(p => p.id === ip.id);
           if(!lp){
@@ -138,7 +145,6 @@ function setupRealtimeListeners(){
             merged.push(incomingTime >= localTime ? ip : lp);
           }
         }
-        // 2. 本地有但遠端沒有的：只保留尚未同步的新專案（無 updatedAt）
         for(const lp of local){
           if(!incomingMap[lp.id] && !lp.updatedAt){
             merged.push(lp);
@@ -166,7 +172,6 @@ function setupRealtimeListeners(){
       }
     });
 
-  // 2. 監聽已接受的成員文件（同步共用專案）
   setupMemberListeners();
 }
 
@@ -180,8 +185,8 @@ function setupMemberListeners(){
   const acceptedMembers = DB.members.filter(m => m.status === 'accepted' && m.id);
   for(const member of acceptedMembers){
     const unsub = firebase.firestore().collection('users').doc(member.id)
-      .onSnapshot({ includeMetadataChanges: true }, (snap) => {
-        if(snap.metadata.fromCache) return;
+      .onSnapshot(snap => {
+        if(snap.metadata.fromCache || snap.metadata.hasPendingWrites) return;
         const data = snap.data();
         if(!data || !data.projects) return;
 

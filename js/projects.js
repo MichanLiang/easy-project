@@ -421,17 +421,38 @@ function renderPlainDoc(p,d){
 }
 
 let _docSel = null;
+let _docSelData = null;
 
 function saveDocSelection(){
   const sel = window.getSelection();
-  if(sel.rangeCount > 0) _docSel = sel.getRangeAt(0);
+  if(sel.rangeCount > 0){
+    _docSel = sel.getRangeAt(0);
+    const r = _docSel;
+    _docSelData = {
+      startContainer: r.startContainer,
+      startOffset: r.startOffset,
+      endContainer: r.endContainer,
+      endOffset: r.endOffset
+    };
+  }
 }
 
 function restoreDocSelection(){
-  if(!_docSel) return;
+  if(!_docSelData) return;
   const sel = window.getSelection();
-  sel.removeAllRanges();
-  sel.addRange(_docSel);
+  try{
+    const range = document.createRange();
+    range.setStart(_docSelData.startContainer, _docSelData.startOffset);
+    range.setEnd(_docSelData.endContainer, _docSelData.endOffset);
+    sel.removeAllRanges();
+    sel.addRange(range);
+    _docSel = range;
+  }catch(e){
+    if(_docSel){
+      sel.removeAllRanges();
+      sel.addRange(_docSel);
+    }
+  }
 }
 
 function toggleDocPalette(id){

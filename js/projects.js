@@ -396,6 +396,7 @@ function renderPlainDoc(p,d){
         </button>
         <div id="hl-${id}" class="doc-palette" style="display:none;position:absolute;top:100%;left:0;margin-top:4px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px;box-shadow:0 4px 12px rgba(0,0,0,.15);z-index:100;">
           <div style="display:grid;grid-template-columns:repeat(10,1fr);gap:2px;">
+            <div style="width:18px;height:18px;background:transparent;border:1px solid var(--line);border-radius:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--ink-faint);" onclick="docExecWithColor('hiliteColor','transparent','hl-indicator-${id}','hl-${id}')" title="透明">✕</div>
             ${colors.map(c=>`<div style="width:18px;height:18px;background:${c};border:1px solid var(--line);border-radius:2px;cursor:pointer;" onclick="docExecWithColor('hiliteColor','${c}','hl-indicator-${id}','hl-${id}')"></div>`).join('')}
           </div>
         </div>
@@ -439,6 +440,23 @@ function saveDocSelection(){
 }
 
 function getTextOffset(editor, node, offset){
+  if(node.nodeType === 1){
+    const child = node.childNodes[offset];
+    if(child){
+      const tw = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null);
+      let count = 0, n;
+      while(n = tw.nextNode()){
+        if(n === child) return count;
+        count += n.textContent.length;
+      }
+    }
+    const tw2 = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null);
+    let count = 0, n2;
+    while(n2 = tw2.nextNode()){
+      if(node.contains(n2)) count += n2.textContent.length;
+    }
+    return count;
+  }
   const walk = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null);
   let count = 0, n;
   while(n = walk.nextNode()){

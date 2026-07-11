@@ -90,9 +90,9 @@ function viewWeekly(){
             ${day.isToday ? '<span class="tag" style="font-size:10px;padding:1px 6px;background:var(--accent-soft);color:var(--accent);">今天</span>' : ''}
             <span style="font-size:11px;color:var(--ink-faint);">(${day.dayItems.length})</span>
           </div>
-          <div class="card" style="margin:0;">
+          <div class="card" style="margin:0;padding:8px 16px;">
             ${day.dayItems.length ? day.dayItems.map(it => `
-              <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);">
+              <div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line);">
                 <span class="icon" style="width:14px;height:14px;color:${typeColors[it.type]}">${getIcon(typeIcons[it.type])}</span>
                 <span style="font-size:12px;color:${typeColors[it.type]};min-width:32px;">${typeLabels[it.type]}</span>
                 <span style="flex:1;font-size:13px;">${escapeHTML(it.title)}</span>

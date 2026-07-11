@@ -367,21 +367,11 @@ function renderPlainDoc(p,d){
   <div class="card" style="padding:0;border:1px solid var(--line);border-radius:var(--radius-lg);overflow:visible;">
     <div class="doc-toolbar" id="toolbar-${id}" style="display:flex;flex-wrap:wrap;gap:2px;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--bg-subtle);">
       <div style="display:flex;align-items:center;gap:2px;">
-        <select id="fontSizeSel-${id}" onchange="applyDocFontSize('${id}',this.value)" style="padding:4px 6px;border:1px solid var(--line);border-radius:4px;font-size:12px;background:var(--bg);width:56px;">
-          <option value="12">12</option>
-          <option value="14" selected>14</option>
-          <option value="16">16</option>
-          <option value="18">18</option>
-          <option value="20">20</option>
-          <option value="24">24</option>
-          <option value="28">28</option>
-          <option value="32">32</option>
-          <option value="36">36</option>
-          <option value="48">48</option>
-          <option value="64">64</option>
-        </select>
-        <input type="number" id="fontSizeInput-${id}" min="8" max="200" value="14" onchange="applyDocFontSize('${id}',this.value)" style="width:48px;padding:4px 4px;border:1px solid var(--line);border-radius:4px;font-size:12px;background:var(--bg);text-align:center;" placeholder="px">
+        <input type="number" id="fontSizeInput-${id}" list="fontSizeList-${id}" min="8" max="200" value="14" onmousedown="saveDocSelection()" onchange="applyDocFontSize('${id}',this.value)" onkeydown="if(event.key==='Enter'){applyDocFontSize('${id}',this.value);this.blur();}" style="width:52px;padding:4px 4px;border:1px solid var(--line);border-radius:4px;font-size:12px;background:var(--bg);text-align:center;" placeholder="px">
         <span style="font-size:11px;color:var(--ink-faint);">px</span>
+        <datalist id="fontSizeList-${id}">
+          <option value="8"><option value="10"><option value="12"><option value="14"><option value="16"><option value="18"><option value="20"><option value="24"><option value="28"><option value="32"><option value="36"><option value="48"><option value="64"><option value="72"><option value="96">
+        </datalist>
       </div>
       <div class="doc-color-wrap" style="position:relative;">
         <button class="btn-ghost btn-icon btn-sm" onmousedown="saveDocSelection()" onclick="toggleDocPalette('fg-${id}')" title="字體顏色" style="position:relative;">
@@ -448,9 +438,9 @@ function toggleDocPalette(id){
 }
 
 function applyDocFontSize(editorId, val){
-  restoreDocSelection();
   const px = parseInt(val);
   if(isNaN(px) || px < 1) return;
+  restoreDocSelection();
   const sel = window.getSelection();
   if(!sel.rangeCount) return;
   const range = sel.getRangeAt(0);
@@ -470,10 +460,7 @@ function applyDocFontSize(editorId, val){
     span.appendChild(frag);
     range.insertNode(span);
   }
-  const input = document.getElementById('fontSizeInput-'+editorId);
-  const sel2 = document.getElementById('fontSizeSel-'+editorId);
-  if(input) input.value = px;
-  if(sel2) sel2.value = px;
+  document.getElementById('fontSizeInput-'+editorId).value = px;
   const editor = document.getElementById(editorId);
   if(editor) updatePlainDocHTML(editorId.replace('doc-','').split('-')[0], editorId.replace('doc-',''), editor.innerHTML);
 }

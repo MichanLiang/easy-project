@@ -7,6 +7,7 @@ const Icons = {
   user: '<i data-lucide="user"></i>',
   folder: '<i data-lucide="folder"></i>',
   calendar: '<i data-lucide="calendar"></i>',
+  calendarClock: '<i data-lucide="calendar-clock"></i>',
   checkSquare: '<i data-lucide="check-square"></i>',
   lightbulb: '<i data-lucide="lightbulb"></i>',
   fileText: '<i data-lucide="file-text"></i>',

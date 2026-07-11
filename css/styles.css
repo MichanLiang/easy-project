@@ -1869,6 +1869,9 @@ svg.edges{
     flex-wrap:wrap;
     gap:4px;
   }
+  .section-title .dot{
+    display:none;
+  }
   
   /* 聊天室 */
   .chat-wrap{
@@ -1972,6 +1975,25 @@ svg.edges{
   .uf-canvas{
     min-height:500px;
   }
+  
+  /* 手機隱藏 sidebar 折疊按鈕和三點選單 */
+  .sidebar-head .collapse-btn{
+    display:none !important;
+  }
+  .sidebar-footer .collapse-btn{
+    display:none !important;
+  }
+  
+  /* 手機縮小按鈕避免跑行 */
+  .btn-sm, .btn{
+    font-size:12px !important;
+    padding:4px 8px !important;
+    gap:4px !important;
+  }
+  .btn-sm .icon, .btn .icon{
+    width:12px !important;
+    height:12px !important;
+  }
 }
 
 /* 小手機 */
@@ -1984,8 +2006,5 @@ svg.edges{
   }
   .card{
     padding:12px !important;
-  }
-  .chat-msgs{
-    min-height:auto;
   }
 }

@@ -50,7 +50,7 @@ function renderSidebar(){
           <span class="ic">${getIcon(it.icon)}</span><span class="navlabel">${it.label}</span>
         </div>`).join('')}
     </div>
-    <div class="sidebar-footer" onclick="go('settings')" style="cursor:pointer;" title="個人設定">
+    <div class="sidebar-footer" onclick="navigateAndCloseSidebar('settings')" style="cursor:pointer;" title="個人設定">
       <div class="avatar" style="width:34px;height:34px;background:${userColor};font-size:13px;">
         ${photoURL 
           ? `<img src="${photoURL}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`

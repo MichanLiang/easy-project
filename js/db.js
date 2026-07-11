@@ -61,6 +61,7 @@ async function loadUserDataFromFirestore(){
     
     persist();
     setupRealtimeListeners();
+    setupTodoListeners();
   } catch (error) {
     console.error('載入用戶資料失敗:', error);
   }
@@ -117,23 +118,30 @@ function setupRealtimeListeners(){
       const data = snap.data();
       if(!data) return;
 
-      const before = JSON.stringify(DB.projects);
+      const before = JSON.stringify({p:DB.projects,t:DB.todos,m:DB.meetings,b:DB.backlogItems,tr:DB.trash});
 
       if(data.projects){
         const incoming = data.projects;
         const local = DB.projects;
-        const merged = [];
-        const localMap = {};
-        local.forEach(p => { localMap[p.id] = p; });
+        const incomingMap = {};
+        incoming.forEach(p => { incomingMap[p.id] = p; });
 
+        const merged = [];
+        // 1. 遠端有的專案：取較新版本
         for(const ip of incoming){
-          const lp = localMap[ip.id];
+          const lp = local.find(p => p.id === ip.id);
           if(!lp){
             merged.push(ip);
           } else {
             const localTime = new Date(lp.updatedAt||0).getTime();
             const incomingTime = new Date(ip.updatedAt||0).getTime();
-            merged.push(incomingTime > localTime ? ip : lp);
+            merged.push(incomingTime >= localTime ? ip : lp);
+          }
+        }
+        // 2. 本地有但遠端沒有的：只保留尚未同步的新專案（無 updatedAt）
+        for(const lp of local){
+          if(!incomingMap[lp.id] && !lp.updatedAt){
+            merged.push(lp);
           }
         }
         DB.projects = merged;
@@ -148,10 +156,10 @@ function setupRealtimeListeners(){
         const prevMembers = JSON.stringify(DB.members.map(m=>({id:m.id,status:m.status})));
         DB.members = data.members;
         const newMembers = JSON.stringify(DB.members.map(m=>({id:m.id,status:m.status})));
-        if(prevMembers !== newMembers) setupMemberListeners();
+        if(prevMembers !== newMembers){ setupMemberListeners(); setupTodoListeners(); }
       }
 
-      const after = JSON.stringify(DB.projects);
+      const after = JSON.stringify({p:DB.projects,t:DB.todos,m:DB.meetings,b:DB.backlogItems,tr:DB.trash});
       if(before !== after){
         persist();
         render();
@@ -179,15 +187,25 @@ function setupMemberListeners(){
 
         const before = JSON.stringify(DB.projects);
 
+        // 找出這個成員擁有的專案 ID
+        const memberProjectIds = new Set(data.projects.map(p => p.id));
         const myIds = new Set(DB.projects.map(p => p.id));
+
+        // 移除這個成員已刪除的共用專案
+        DB.projects = DB.projects.filter(p => {
+          if(memberProjectIds.has(p.id)) return true; // 遠端還有，保留
+          if(!myIds.has(p.id)) return true; // 不是我們的專案，保留
+          // 我們有但這個成員沒有了 → 成員刪除了，移除
+          return false;
+        });
+
+        // 合併/更新
         for(const mp of data.projects){
-          if(myIds.has(mp.id)){
-            const local = DB.projects.find(p => p.id === mp.id);
-            const localTime = new Date(local?.updatedAt||0).getTime();
+          const local = DB.projects.find(p => p.id === mp.id);
+          if(local){
+            const localTime = new Date(local.updatedAt||0).getTime();
             const incomingTime = new Date(mp.updatedAt||0).getTime();
-            if(incomingTime > localTime){
-              Object.assign(local, mp);
-            }
+            if(incomingTime > localTime) Object.assign(local, mp);
           } else {
             DB.projects.push(mp);
           }

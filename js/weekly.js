@@ -1,28 +1,37 @@
 /* ================= 本週計畫 ================= */
-function viewWeekly(){
+function getWeekRange(offset){
   const now = new Date();
-  const dayOfWeek = now.getDay() || 7; // 1=Mon, 7=Sun
+  const dayOfWeek = now.getDay() || 7;
   const monday = new Date(now);
-  monday.setDate(now.getDate() - dayOfWeek + 1);
+  monday.setDate(now.getDate() - dayOfWeek + 1 + (offset || 0));
   monday.setHours(0,0,0,0);
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
-  sunday.setHours(23,59,59,999);
+  return {
+    weekStart: monday.toISOString().slice(0,10),
+    weekEnd: sunday.toISOString().slice(0,10),
+    monday: new Date(monday)
+  };
+}
 
-  const weekStart = monday.toISOString().slice(0,10);
-  const weekEnd = sunday.toISOString().slice(0,10);
+function changeWeek(offset){
+  state.calWeekOffset = (state.calWeekOffset || 0) + offset;
+  render();
+}
 
-  // 收集本週所有任務
+function viewWeekly(){
+  if(state.calWeekOffset === undefined) state.calWeekOffset = 0;
+  const {weekStart, weekEnd, monday} = getWeekRange(state.calWeekOffset);
+  const today = new Date().toISOString().slice(0,10);
+
   const items = [];
 
-  // 1. 待辦清單中本週到期或已到期的
   DB.todos.forEach(t => {
     if(t.date && t.date >= weekStart && t.date <= weekEnd && t.status !== 'done'){
       items.push({type:'todo', date:t.date, title:t.title, status:t.status, data:t, id:t.id});
     }
   });
 
-  // 2. 專案看板中本週到期的卡片
   DB.projects.forEach(p => {
     p.docs.forEach(d => {
       if(d.type === 'kanban'){
@@ -42,24 +51,21 @@ function viewWeekly(){
     });
   });
 
-  // 3. 會議記錄中本週的
   DB.meetings.forEach(m => {
     if(m.date && m.date >= weekStart && m.date <= weekEnd){
       items.push({type:'meeting', date:m.date, title:m.title || m.name || '速記', status:'', data:m, id:m.id});
     }
   });
 
-  // 按日期排序
   items.sort((a,b) => a.date.localeCompare(b.date));
 
-  // 生成日期標題
   const dayNames = ['週一','週二','週三','週四','週五','週六','週日'];
   const days = [];
   for(let i = 0; i < 7; i++){
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
     const dateStr = d.toISOString().slice(0,10);
-    const isToday = dateStr === now.toISOString().slice(0,10);
+    const isToday = dateStr === today;
     days.push({dateStr, dayName:dayNames[i], isToday, dayItems: items.filter(it => it.date === dateStr)});
   }
 
@@ -69,7 +75,13 @@ function viewWeekly(){
 
   return `
     <div class="page-title">本週計畫</div>
-    <div class="page-sub">${weekStart} ~ ${weekEnd}　｜　共 ${items.length} 項任務</div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+      <button class="btn btn-sm" onclick="changeWeek(-1)"><span class="icon">${getIcon('chevronLeft')}</span> 上週</button>
+      <span style="font-size:13px;font-weight:600;">${weekStart} ~ ${weekEnd}</span>
+      <button class="btn btn-sm" onclick="changeWeek(1)">下週 <span class="icon">${getIcon('chevronRight')}</span></button>
+      ${state.calWeekOffset !== 0 ? '<button class="btn btn-sm" onclick="state.calWeekOffset=0;render();">回到本週</button>' : ''}
+      <span style="font-size:12px;color:var(--ink-faint);">共 ${items.length} 項任務</span>
+    </div>
     <div style="display:flex;flex-direction:column;gap:16px;">
       ${days.map(day => `
         <div>

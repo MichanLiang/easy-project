@@ -97,6 +97,7 @@ function viewSettings(){
         個人資料
       </div>
       <div class="field"><label>顯示名稱</label><input type="text" id="meName" value="${escapeHTML(me.name)}"></div>
+      <div class="field"><label>暱稱</label><input type="text" id="meNickname" value="${escapeHTML(me.nickname||'')}" placeholder="團隊中顯示的暱稱"></div>
       <div class="field"><label>顏色標籤</label>
         <div class="chip-row">${getMorandiColors().map(c=>`<div onclick="pickMeColor(this,'${c}')" style="width:32px;height:32px;border-radius:50%;background:${c};cursor:pointer;border:3px solid ${c===me.color?'var(--ink)':'transparent'};transition:all 0.15s;"></div>`).join('')}</div>
         <input type="hidden" id="meColor" value="${me.color}">
@@ -136,18 +137,24 @@ function viewSettings(){
           const isPending = m.status === 'pending';
           
           return `
-          <div class="member-row" data-uid="${m.id}">
-            ${avatarHTML(m.id,34)}
-            <div style="flex:1;">
-              <div style="font-weight:600;">${escapeHTML(m.name)}</div>
-              <div style="font-size:11px;color:var(--ink-faint);">${m.email || '本地用戶'}</div>
+          <div class="member-row" data-uid="${m.id}" style="flex-wrap:wrap;gap:8px;">
+            <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:200px;">
+              ${avatarHTML(m.id,34)}
+              <div style="flex:1;">
+                <div style="font-weight:600;">${escapeHTML(m.nickname || m.name)}</div>
+                <div style="font-size:11px;color:var(--ink-faint);">${m.email || '本地用戶'}</div>
+              </div>
+              ${isMe ? '<span style="font-size:11px;color:var(--accent);">你</span>' : 
+                isPending ? '<span class="tag" style="font-size:10px;background:var(--amber-soft);color:var(--amber-dark);">等待中</span>' :
+                `<button class="btn-ghost btn-icon btn-sm" onclick="removeMember('${m.id}')">
+                  <span class="icon">${getIcon('x')}</span>
+                </button>`
+              }
             </div>
-            ${isMe ? '<span style="font-size:11px;color:var(--accent);">你</span>' : 
-              isPending ? '<span class="tag" style="font-size:10px;background:var(--amber-soft);color:var(--amber-dark);">等待中</span>' :
-              `<button class="btn-ghost btn-icon btn-sm" onclick="removeMember('${m.id}')">
-                <span class="icon">${getIcon('x')}</span>
-              </button>`
-            }
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+              <input type="text" value="${escapeHTML(m.nickname||'')}" placeholder="暱稱" style="width:80px;font-size:11px;padding:3px 6px;border:1px solid var(--line);border-radius:4px;" onchange="updateMemberField('${m.id}','nickname',this.value)">
+              <input type="text" value="${escapeHTML(m.group||'')}" placeholder="分組" style="width:80px;font-size:11px;padding:3px 6px;border:1px solid var(--line);border-radius:4px;" onchange="updateMemberField('${m.id}','group',this.value)">
+            </div>
           </div>`;
         }).join('')}
         ${DB.members.length === 0 ? '<div class="empty">尚未邀請成員</div>' : ''}
@@ -174,8 +181,16 @@ function pickMeColor(el,c){
 function saveMyProfile(){
   const me = memberById(DB.currentUser);
   me.name = document.getElementById('meName').value.trim() || me.name;
+  me.nickname = document.getElementById('meNickname').value.trim();
   me.color = document.getElementById('meColor').value;
   persist(); toast('已儲存'); render();
+}
+
+function updateMemberField(memberId, field, value){
+  const m = DB.members.find(x=>x.id===memberId);
+  if(!m) return;
+  m[field] = value.trim();
+  persist();
 }
 
 // 邀請成員

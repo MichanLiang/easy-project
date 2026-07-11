@@ -75,12 +75,9 @@ function viewMeetingsGlobal(){
   const all = [...standalone.map(m => ({...m, projectName: null})), ...projMeetings];
   all.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
-  // 本週日期範圍
-  const now = new Date();
-  const dayOfWeek = now.getDay() || 7;
-  const monday = new Date(now);
-  monday.setDate(now.getDate() - dayOfWeek + 1);
-  monday.setHours(0,0,0,0);
+  if(state.calWeekOffset === undefined) state.calWeekOffset = 0;
+  const {weekStart, weekEnd, monday} = getWeekRange(state.calWeekOffset);
+  const today = new Date().toISOString().slice(0,10);
 
   const dayNames = ['一','二','三','四','五','六','日'];
   const weekDays = [];
@@ -88,7 +85,7 @@ function viewMeetingsGlobal(){
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
     const dateStr = d.toISOString().slice(0,10);
-    const isToday = dateStr === now.toISOString().slice(0,10);
+    const isToday = dateStr === today;
     const dayMeetings = all.filter(m => m.date === dateStr);
     weekDays.push({dateStr, dayName:dayNames[i], isToday, meetings:dayMeetings});
   }
@@ -145,6 +142,12 @@ function viewMeetingsGlobal(){
   </div>
 
   <!-- 本週曆 -->
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+    <button class="btn btn-sm" onclick="changeWeek(-1)"><span class="icon">${getIcon('chevronLeft')}</span> 上週</button>
+    <span style="font-size:13px;font-weight:600;">${weekStart} ~ ${weekEnd}</span>
+    <button class="btn btn-sm" onclick="changeWeek(1)">下週 <span class="icon">${getIcon('chevronRight')}</span></button>
+    ${state.calWeekOffset !== 0 ? '<button class="btn btn-sm" onclick="state.calWeekOffset=0;render();">回到本週</button>' : ''}
+  </div>
   <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:20px;">
     <div style="display:flex;gap:0;min-width:700px;">
       ${weekDays.map(day => `

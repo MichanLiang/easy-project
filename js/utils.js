@@ -12,7 +12,7 @@ function escapeHTML(s){
 }
 
 function memberById(id){ return DB.members.find(m=>m.id===id); }
-function memberName(id){ const m=memberById(id); return m? m.name : '未知'; }
+function memberName(id){ const m=memberById(id); return m? (m.nickname || m.name) : '未知'; }
 function initials(name){ return name ? name.slice(0,1) : '?'; }
 
 function avatarHTML(id, size){

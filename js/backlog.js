@@ -161,15 +161,26 @@ function dismissBacklogItem(id){
 
 function convertBacklogToTask(id){
   const i = DB.backlogItems.find(x=>x.id===id);
-  if(!i.projectId){ toast('請先指定所屬專案再轉為任務'); return; }
-  const p = DB.projects.find(x=>x.id===i.projectId);
-  let kanbanDoc = p.docs.find(d=>d.type==='kanban');
-  if(!kanbanDoc){ kanbanDoc = {id:uid(), type:'kanban', name:'開發看板', cards:[]}; p.docs.push(kanbanDoc); }
-  kanbanDoc.cards.push({id:uid(), title:i.title, col:'pending', assignee:'', due:'', note:i.desc||'', attachments:[]});
-  // 轉為任務後也標記為已處理
+  if(i.projectId){
+    // 有專案 → 轉為看板任務
+    const p = DB.projects.find(x=>x.id===i.projectId);
+    let kanbanDoc = p.docs.find(d=>d.type==='kanban');
+    if(!kanbanDoc){ kanbanDoc = {id:uid(), type:'kanban', name:'開發看板', cards:[]}; p.docs.push(kanbanDoc); }
+    kanbanDoc.cards.push({id:uid(), title:i.title, col:'pending', assignee:'', due:'', note:i.desc||'', attachments:[]});
+    syncProjectAfterChange(i.projectId);
+    toast('已轉為看板任務');
+  } else {
+    // 無專案 → 轉為「我的任務」
+    const user = auth.currentUser;
+    DB.todos.push({
+      id:uid(), title:i.title, status:'pending', assignee:'',
+      assignedBy: user ? user.uid : 'guest',
+      projectId:'', date:'', note:i.desc||'', attachments:[], colorTag:''
+    });
+    toast('已轉為我的任務');
+  }
   if(!Array.isArray(DB.dismissedBacklogs)) DB.dismissedBacklogs = [];
   DB.dismissedBacklogs.push(id);
   DB.backlogItems = DB.backlogItems.filter(x=>x.id!==id);
-  persist(); toast('已轉為看板任務'); render();
-  syncProjectAfterChange(i.projectId);
+  persist(); render();
 }

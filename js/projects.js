@@ -370,8 +370,6 @@ function renderPlainDoc(p,d){
         <button class="btn-ghost btn-icon btn-sm" onmousedown="event.preventDefault();saveDocSelection();decDocFontSize('${id}')" style="width:20px;height:24px;font-size:14px;font-weight:bold;border:1px solid var(--line);border-radius:4px 0 0 4px;background:var(--bg);">−</button>
         <input type="number" id="fontSizeInput-${id}" list="fontSizeList-${id}" min="8" max="200" value="14"
           onmousedown="saveDocSelection()" onfocus="saveDocSelection()"
-          oninput="applyDocFontSizeLive('${id}',this.value)"
-          onchange="applyDocFontSizeLive('${id}',this.value)"
           onkeydown="if(event.key==='Enter'){applyDocFontSizeLive('${id}',this.value);this.blur();}"
           style="width:42px;padding:4px 2px;border:1px solid var(--line);border-left:none;border-right:none;font-size:12px;background:var(--bg);text-align:center;" placeholder="px">
         <button class="btn-ghost btn-icon btn-sm" onmousedown="event.preventDefault();saveDocSelection();incDocFontSize('${id}')" style="width:20px;height:24px;font-size:14px;font-weight:bold;border:1px solid var(--line);border-radius:0 4px 4px 0;background:var(--bg);">+</button>
@@ -495,25 +493,23 @@ function applyDocFontSize(editorId, val){
   const sel = window.getSelection();
   if(!sel.rangeCount) return;
   const range = sel.getRangeAt(0);
-  if(range.collapsed){
-    const span = document.createElement('span');
-    span.setAttribute('style','font-size:'+px+'px !important');
-    span.innerHTML = '\u200B';
-    range.insertNode(span);
-    range.setStartAfter(span);
-    range.setEndAfter(span);
-    sel.removeAllRanges();
-    sel.addRange(range);
-  } else {
-    const contents = range.cloneContents();
-    const div = document.createElement('div');
-    div.appendChild(contents);
-    const span = document.createElement('span');
-    span.setAttribute('style','font-size:'+px+'px !important');
-    span.innerHTML = div.innerHTML;
-    range.deleteContents();
-    range.insertNode(span);
-  }
+  if(range.collapsed) return;
+  
+  const contents = range.cloneContents();
+  const div = document.createElement('div');
+  div.appendChild(contents);
+  const span = document.createElement('span');
+  span.setAttribute('style','font-size:'+px+'px !important');
+  span.innerHTML = div.innerHTML;
+  range.deleteContents();
+  range.insertNode(span);
+  
+  const newRange = document.createRange();
+  newRange.selectNodeContents(span);
+  sel.removeAllRanges();
+  sel.addRange(newRange);
+  saveDocSelection();
+  
   document.getElementById('fontSizeInput-'+editorId).value = px;
   const editor = document.getElementById(editorId);
   if(editor) updatePlainDocHTML(editorId.replace('doc-','').split('-')[0], editorId.replace('doc-',''), editor.innerHTML);
@@ -557,14 +553,10 @@ function insertDocTable(editorId){
     }
   }
   
-  const br = document.createElement('p');
-  br.innerHTML = '<br>';
   if(insertNode === editor){
     editor.appendChild(table);
-    editor.appendChild(br);
   } else {
     insertNode.parentNode.insertBefore(table, insertNode.nextSibling);
-    insertNode.parentNode.insertBefore(br, table.nextSibling);
   }
   addTableResizeHandles(table);
 }
@@ -761,6 +753,7 @@ function restoreDocTables(){
 }
 
 function updatePlainDocHTML(pId,dId,html){
+  html = html.replace(/^(\s*<br>\s*|<p>\s*<br>\s*<\/p>\s*)+/,'').replace(/(\s*<br>\s*|\s*<p>\s*<br>\s*<\/p>\s*)+$/,'');
   const p=DB.projects.find(x=>x.id===pId); const d=p.docs.find(x=>x.id===dId);
   d.content = html; persist();
   syncProjectAfterChange(pId);

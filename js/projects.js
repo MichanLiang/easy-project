@@ -374,24 +374,24 @@ function renderPlainDoc(p,d){
         <option value="7">超大</option>
       </select>
       <div class="doc-color-wrap" style="position:relative;">
-        <button class="btn-ghost btn-icon btn-sm" onclick="toggleDocPalette('fg-${id}')" title="字體顏色" style="position:relative;">
+        <button class="btn-ghost btn-icon btn-sm" onmousedown="saveDocSelection()" onclick="toggleDocPalette('fg-${id}')" title="字體顏色" style="position:relative;">
           <span class="icon">${getIcon('font')}</span>
           <span id="fg-indicator-${id}" style="position:absolute;bottom:2px;left:50%;transform:translateX(-50%);width:14px;height:3px;background:#000;border-radius:1px;"></span>
         </button>
         <div id="fg-${id}" class="doc-palette" style="display:none;position:absolute;top:100%;left:0;margin-top:4px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px;box-shadow:0 4px 12px rgba(0,0,0,.15);z-index:100;">
           <div style="display:grid;grid-template-columns:repeat(10,1fr);gap:2px;">
-            ${colors.map(c=>`<div style="width:18px;height:18px;background:${c};border:1px solid var(--line);border-radius:2px;cursor:pointer;" onclick="docExec('foreColor','${c}');document.getElementById('fg-indicator-${id}').style.background='${c}';toggleDocPalette('fg-${id}')"></div>`).join('')}
+            ${colors.map(c=>`<div style="width:18px;height:18px;background:${c};border:1px solid var(--line);border-radius:2px;cursor:pointer;" onclick="docExecWithColor('foreColor','${c}','fg-indicator-${id}','fg-${id}')"></div>`).join('')}
           </div>
         </div>
       </div>
       <div class="doc-color-wrap" style="position:relative;">
-        <button class="btn-ghost btn-icon btn-sm" onclick="toggleDocPalette('hl-${id}')" title="螢光標記" style="position:relative;">
+        <button class="btn-ghost btn-icon btn-sm" onmousedown="saveDocSelection()" onclick="toggleDocPalette('hl-${id}')" title="螢光標記" style="position:relative;">
           <span style="font-size:14px;font-weight:bold;">A</span>
           <span id="hl-indicator-${id}" style="position:absolute;bottom:2px;left:50%;transform:translateX(-50%);width:14px;height:3px;background:#FFFF00;border-radius:1px;"></span>
         </button>
         <div id="hl-${id}" class="doc-palette" style="display:none;position:absolute;top:100%;left:0;margin-top:4px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px;box-shadow:0 4px 12px rgba(0,0,0,.15);z-index:100;">
           <div style="display:grid;grid-template-columns:repeat(10,1fr);gap:2px;">
-            ${colors.map(c=>`<div style="width:18px;height:18px;background:${c};border:1px solid var(--line);border-radius:2px;cursor:pointer;" onclick="docExec('hiliteColor','${c}');document.getElementById('hl-indicator-${id}').style.background='${c}';toggleDocPalette('hl-${id}')"></div>`).join('')}
+            ${colors.map(c=>`<div style="width:18px;height:18px;background:${c};border:1px solid var(--line);border-radius:2px;cursor:pointer;" onclick="docExecWithColor('hiliteColor','${c}','hl-indicator-${id}','hl-${id}')"></div>`).join('')}
           </div>
         </div>
       </div>
@@ -414,12 +414,33 @@ function renderPlainDoc(p,d){
   </div>`;
 }
 
+let _docSel = null;
+
+function saveDocSelection(){
+  const sel = window.getSelection();
+  if(sel.rangeCount > 0) _docSel = sel.getRangeAt(0);
+}
+
+function restoreDocSelection(){
+  if(!_docSel) return;
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(_docSel);
+}
+
 function toggleDocPalette(id){
   const el = document.getElementById(id);
   if(!el) return;
   const show = el.style.display === 'none';
   document.querySelectorAll('.doc-palette').forEach(p=>p.style.display='none');
   if(show) el.style.display = 'block';
+}
+
+function docExecWithColor(cmd, val, indicatorId, paletteId){
+  restoreDocSelection();
+  document.execCommand(cmd, false, val);
+  if(indicatorId) document.getElementById(indicatorId).style.background = val;
+  if(paletteId) document.getElementById(paletteId).style.display = 'none';
 }
 
 function docExec(cmd, val){

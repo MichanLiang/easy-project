@@ -106,8 +106,25 @@ let wfSelected = null;
 let wfClipboard = null;
 
 function selectWFElement(id){
-  wfSelected = id;
-  render();
+  if(wfSelected && wfSelected!==id){
+    const prev=document.getElementById('wfel-'+wfSelected);
+    if(prev){
+      prev.classList.remove('wf-selected');
+      prev.querySelectorAll('.del,.resize,.resize-line,.rotate,.curve-handle').forEach(x=>x.style.display='none');
+    }
+  }
+  wfSelected=id;
+  if(id){
+    const el=document.getElementById('wfel-'+id);
+    if(el){
+      el.classList.add('wf-selected');
+      const del=el.querySelector('.del'); if(del) del.style.display='flex';
+      const resize=el.querySelector('.resize'); if(resize) resize.style.display='block';
+      const resizeLine=el.querySelector('.resize-line'); if(resizeLine) resizeLine.style.display='block';
+      const rotate=el.querySelector('.rotate'); if(rotate) rotate.style.display='block';
+      el.querySelectorAll('.curve-handle').forEach(x=>x.style.display='block');
+    }
+  }
 }
 
 function setWFColor(color){
@@ -118,7 +135,18 @@ function setWFColor(color){
       if(el.shape==='button'){ el.btnColor = color; }
       else if(el.shape==='hline'||el.shape==='wline'){ el.lineColor = color; }
       else { el.color = color; }
-      persist(); syncProjectAfterChange(p.id); render(); return;
+      const domEl=document.getElementById('wfel-'+wfSelected);
+      if(domEl){
+        const styleStr=wfShapeStyle(el);
+        domEl.setAttribute('style',domEl.getAttribute('style').replace(/background:[^;]+|border:[^;]+|border-top:[^;]+/g,'')+';'+styleStr);
+        if(el.shape==='hline') domEl.style.borderTop='3px solid '+(el.lineColor||'#424242');
+        if(el.shape==='wline'){
+          const svg=domEl.querySelector('.wline-svg path');
+          if(svg) svg.setAttribute('stroke',el.lineColor||'#424242');
+        }
+        if(el.shape==='button') domEl.style.background=el.btnColor||'#C4A4A4';
+      }
+      persist(); syncProjectAfterChange(p.id); return;
     }
   }
 }
@@ -137,8 +165,24 @@ function pasteWFElement(pId,dId){
   const newEl = {...wfClipboard, id:uid(), x:wfClipboard.x+20, y:wfClipboard.y+20};
   d.elements.push(newEl);
   wfSelected = newEl.id;
-  persist(); render();
+  persist();
   syncProjectAfterChange(pId);
+  const canvas=document.getElementById('wfCanvas');
+  if(canvas){
+    const tmp=document.createElement('div');
+    tmp.innerHTML=renderWFElement(newEl);
+    const domEl=tmp.firstElementChild;
+    canvas.appendChild(domEl);
+    domEl.addEventListener('mousedown',(e)=>{
+      if(e.target.closest('.del')||e.target.closest('.resize')||e.target.closest('.resize-line')||e.target.closest('.rotate')||e.target.closest('.curve-handle')) return;
+      const rect=canvas.getBoundingClientRect();
+      wfState.mode='drag'; wfState.elId=domEl.dataset.id;
+      wfState.offX=e.clientX-rect.left-domEl.offsetLeft;
+      wfState.offY=e.clientY-rect.top-domEl.offsetTop;
+      wfSelected=domEl.dataset.id;
+    });
+    selectWFElement(newEl.id);
+  }
 }
 
 function initWireframeBoard(d){
@@ -275,8 +319,25 @@ function addWFElement(pId,dId,shape){
   const p=DB.projects.find(x=>x.id===pId); const d=p.docs.find(x=>x.id===dId);
   const defaults = {rect:{w:160,h:100,text:'區塊'}, square:{w:100,h:100,text:'方塊'}, circle:{w:90,h:90,text:'圖示'}, button:{w:120,h:40,text:'按鈕文字'}, text:{w:150,h:26,text:'文字內容'}, hline:{w:200,h:6,text:''}, wline:{w:200,h:80,text:''}};
   const def = defaults[shape];
-  d.elements.push({id:uid(), shape, x:60+Math.random()*300, y:60+Math.random()*200, w:def.w, h:def.h, text:def.text, color:'#F8F9FC', rotation:0, cp1y:def.h*0.2, cp2y:def.h*0.8});
-  persist(); render();
+  const newEl={id:uid(), shape, x:60+Math.random()*300, y:60+Math.random()*200, w:def.w, h:def.h, text:def.text, color:'#F8F9FC', rotation:0, cp1y:def.h*0.2, cp2y:def.h*0.8};
+  d.elements.push(newEl);
+  const canvas=document.getElementById('wfCanvas');
+  if(canvas){
+    const tmp=document.createElement('div');
+    tmp.innerHTML=renderWFElement(newEl);
+    const domEl=tmp.firstElementChild;
+    canvas.appendChild(domEl);
+    domEl.addEventListener('mousedown',(e)=>{
+      if(e.target.closest('.del')||e.target.closest('.resize')||e.target.closest('.resize-line')||e.target.closest('.rotate')||e.target.closest('.curve-handle')) return;
+      const rect=canvas.getBoundingClientRect();
+      wfState.mode='drag'; wfState.elId=domEl.dataset.id;
+      wfState.offX=e.clientX-rect.left-domEl.offsetLeft;
+      wfState.offY=e.clientY-rect.top-domEl.offsetTop;
+      wfSelected=domEl.dataset.id;
+    });
+    selectWFElement(newEl.id);
+  }
+  persist();
   syncProjectAfterChange(pId);
 }
 
@@ -295,7 +356,10 @@ function deleteWFElement(id){
       if(wfSelected===id) wfSelected=null;
       trashItem('wfelement', el, {projectId:p.id, docId:d.id});
       syncProjectAfterChange(p.id);
-      persist(); render(); return;
+      persist();
+      const domEl=document.getElementById('wfel-'+id);
+      if(domEl) domEl.remove();
+      return;
     }
   }
 }

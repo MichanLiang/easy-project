@@ -191,6 +191,10 @@ function initWireframeBoard(d){
   const pid = canvas.dataset.pid, did = canvas.dataset.did;
   wfState = {pid, did, mode:null, elId:null, startX:0, startY:0, startW:0, startH:0, startX2:0, startY2:0};
   
+  canvas.addEventListener('mousedown',(e)=>{
+    if(!e.target.closest('.wf-el')) selectWFElement(null);
+  });
+
   canvas.querySelectorAll('.wf-el').forEach(elDiv=>{
     elDiv.addEventListener('mousedown', (e)=>{
       if(e.target.closest('.del')||e.target.closest('.resize')||e.target.closest('.resize-line')||e.target.closest('.rotate')||e.target.closest('.curve-handle')) return;
